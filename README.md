@@ -53,7 +53,7 @@ myproject > explain how auth works in this codebase
 ### Install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/mnemosyne.git
+git clone https://github.com/Okymi-X/mnemosyne.git
 cd mnemosyne
 uv sync
 ```
@@ -265,7 +265,7 @@ LLM_MODEL=llama3.2
 
 ```bash
 # Clone and install
-git clone https://github.com/YOUR_USERNAME/mnemosyne.git
+git clone https://github.com/Okymi-X/mnemosyne.git
 cd mnemosyne
 uv sync
 
