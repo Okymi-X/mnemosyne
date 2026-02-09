@@ -85,7 +85,11 @@ def add_documents(chunks: list[DocumentChunk]) -> int:
 # Read
 # ─────────────────────────────────────────────────────────────────────────
 
-def query(text: str, n_results: int = 8) -> list[QueryResult]:
+def query(
+    text: str,
+    n_results: int = 8,
+    filter_meta: dict[str, Any] | None = None,
+) -> list[QueryResult]:
     """
     Run a similarity search against the collection.
 
@@ -104,6 +108,7 @@ def query(text: str, n_results: int = 8) -> list[QueryResult]:
         results = collection.query(
             query_texts=[text],
             n_results=min(n_results, collection.count()),
+            where=filter_meta,
         )
     except Exception as exc:
         console.print(f"[red]✗[/red] Query failed: {exc}")

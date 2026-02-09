@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Generator
 
+from typing import Generator, Any
+
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from rich.console import Console
 
@@ -42,13 +44,20 @@ print("hello")
 
 RULES:
 1. Match the user's language (French → French, English → English).
-2. Always give COMPLETE file contents, never partial/truncated.
-3. For project scaffolding: list the structure first, then ALL files.
-4. When codebase context is provided, reference the source files you used.
-5. Be concise, technical, direct. No fluff.
-6. You can answer general questions — don't force codebase context.
-7. When creating multiple files, use a SEPARATE fenced block per file.
-8. NEVER repeat the same file block twice.
+2. IF AND ONLY IF you are writing a file, give COMPLETE file contents.
+3. DO NOT generate file blocks if the user just asks for explanation, analysis, or says "hello"/"don't touch".
+4. If the user says "no", "stop", or "cancel", do NOT output any code blocks.
+5. For project scaffolding: list the structure first, then ALL files.
+6. When codebase context is provided, reference the source files you used.
+7. Be concise, technical, direct. No fluff.
+8. You can answer general questions — don't force codebase context.
+9. When creating multiple files, use a SEPARATE fenced block per file.
+10. NEVER repeat the same file block twice.
+
+DEEP REASONING:
+For complex tasks (debugging, architecture, refactoring), start your response with a <thinking> block.
+Inside <thinking>, analyze the request, plan your approach, and verify assumptions.
+Close the </thinking> block before generating the final response.
 """
 
 
@@ -108,11 +117,20 @@ def _extract_sources(results: list[QueryResult]) -> list[str]:
     return [r.source for r in results if r.source not in seen and not seen.add(r.source)]  # type: ignore
 
 
-def _resolve_config(provider_override: str | None = None) -> MnemosyneConfig:
+def _resolve_config(
+    provider_override: str | None = None,
+    model_override: str | None = None,
+) -> MnemosyneConfig:
     cfg = get_config()
+    needs_rebuild = False
+    d = cfg.model_dump()
     if provider_override:
-        d = cfg.model_dump()
         d["llm_provider"] = provider_override
+        needs_rebuild = True
+    if model_override:
+        d["llm_model"] = model_override
+        needs_rebuild = True
+    if needs_rebuild:
         cfg = MnemosyneConfig(**d)
     return cfg
 
@@ -122,9 +140,10 @@ def _resolve_config(provider_override: str | None = None) -> MnemosyneConfig:
 def ask(
     question: str, *, n_results: int = 8,
     project_root: Path | None = None, provider_override: str | None = None,
+    filter_meta: dict[str, Any] | None = None,
 ) -> BrainResponse:
     cfg = _resolve_config(provider_override)
-    res = vector_query(question, n_results=n_results)
+    res = vector_query(question, n_results=n_results, filter_meta=filter_meta)
     msgs = _build_messages(question, _build_context_block(res), _load_episodic_memory(project_root))
     try:
         answer: str = get_llm(cfg).invoke(msgs).content  # type: ignore
@@ -139,10 +158,12 @@ def ask_streaming(
     question: str, *, history: list[BaseMessage] | None = None,
     n_results: int = 8, project_root: Path | None = None,
     provider_override: str | None = None,
+    model_override: str | None = None,
+    filter_meta: dict[str, Any] | None = None,
 ) -> Generator[str, None, tuple[str, list[str]]]:
     """Yields tokens. Returns (full_answer, sources) on StopIteration."""
-    cfg = _resolve_config(provider_override)
-    res = vector_query(question, n_results=n_results)
+    cfg = _resolve_config(provider_override, model_override)
+    res = vector_query(question, n_results=n_results, filter_meta=filter_meta)
     ctx = _build_context_block(res)
     mem = _load_episodic_memory(project_root)
     msgs = _build_chat_messages(question, ctx, mem, history) if history else _build_messages(question, ctx, mem)

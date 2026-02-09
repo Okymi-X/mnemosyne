@@ -23,7 +23,7 @@
 
 Mnemosyne is a **local-first coding assistant** that runs entirely in your terminal. It ingests your codebase into a local vector database (ChromaDB), then uses RAG to give any LLM deep, accurate knowledge about your project — no cloud uploads, no token limits.
 
-It also includes an **interactive agentic REPL** that can create files, run commands, search your codebase, and scaffold entire projects — all from a single terminal session.
+It includes an **interactive agentic REPL** (v0.4) with **Deep Reasoning** capabilities, **Adaptive Context Filtering**, and a full suite of file operations. It can create files, run commands, search your codebase, and scaffold entire projects — all from a single terminal session.
 
 ```
 ╭──────────────────────────────────────────────╮
@@ -112,6 +112,14 @@ mnemosyne chat -p groq
 
 The `chat` command launches a full terminal coding session:
 
+- **Web Search** — (v1.0) `/web <query>` access to live internet data
+- **Git Commander** — (v1.0) `/git` integration with auto-commit suggestions
+- **Code Linter** — (v1.0) `/lint` checks code quality (ruff, flake8, etc.)
+- **Smart Diff** — (v0.6) view changes before applying (`d` or `diff`)
+- **Auto-Ingestion** — (v0.6) detects new projects and offers to index
+- **Robust Error Recovery** — (v0.6) suggests fixes for failed commands
+- **Autocompletion** — (v0.5) smart suggestions for commands and files
+- **Bottom Toolbar** — (v0.5) persistent status bar
 - **Streaming output** — tokens appear in real-time
 - **Conversation memory** — multi-turn follow-ups
 - **Auto file creation** — detects files in responses, asks to write them
@@ -140,6 +148,8 @@ myproject > create a flask API with user auth
 
 | Command | Description |
 |---------|-------------|
+| `/filter <exts>` | Filter context by file extension (e.g. .py) |
+| `/readonly` | Toggle read-only mode (safety) |
 | `/read <path>` | Load file into conversation context |
 | `/write <path>` | Write last code block to file |
 | `/writeall` | Write all detected files |

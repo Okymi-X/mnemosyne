@@ -143,11 +143,7 @@ def ingest(
     )
 
     with console.status("[bright_green]Scanning files...[/bright_green]"):
-        try:
-            docs = list(scan_directory(root, extra_extensions=extra))
-        except Exception as e:
-            console.print(f"{FAIL} Scan failed: {e}")
-            raise typer.Exit(code=1)
+        docs = list(scan_directory(root, extra_extensions=extra))
 
     if not docs:
         console.print(f"{WARN} No code files found.")

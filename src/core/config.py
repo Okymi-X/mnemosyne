@@ -44,4 +44,10 @@ class MnemosyneConfig(BaseSettings):
 @lru_cache(maxsize=1)
 def get_config() -> MnemosyneConfig:
     """Return a cached singleton of the configuration."""
-    return MnemosyneConfig()
+    cfg = MnemosyneConfig()
+    # Resolve relative path to absolute based on INITIAL cwd
+    # This prevents DB lock errors if the chat session changes directory.
+    import os
+    if not os.path.isabs(cfg.chroma_db_path):
+        cfg.chroma_db_path = os.path.abspath(cfg.chroma_db_path)
+    return cfg
