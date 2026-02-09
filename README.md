@@ -112,6 +112,7 @@ mnemosyne chat -p groq
 
 The `chat` command launches a full terminal coding session:
 
+- **Smart Shell** — (v1.1) run commands directly (`ls`, `curl`, `git`, etc.) without `/run`
 - **Web Search** — (v1.0) `/web <query>` access to live internet data
 - **Git Commander** — (v1.0) `/git` integration with auto-commit suggestions
 - **Code Linter** — (v1.0) `/lint` checks code quality (ruff, flake8, etc.)

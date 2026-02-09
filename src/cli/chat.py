@@ -138,7 +138,7 @@ def _welcome(provider: str, model: str, chunks: int | str) -> None:
     console.print()
     console.print(Rule(style="bright_green"))
     console.print(
-        f"  {G}mnemosyne{R}  {D}v0.6{R}\n"
+        f"  {G}mnemosyne{R}  {D}v1.1 (Smart Shell){R}\n"
         f"\n"
         f"  {D}provider{R}  {C}{provider}{R}\n"
         f"  {D}model{R}     {C}{model}{R}\n"
@@ -1070,6 +1070,30 @@ class ChatSession:
 
             if raw.startswith("/"):
                 if not self._slash(raw): break
+                continue
+
+            # Smart Shell Direct Execution (v1.1)
+            # If input starts with a known shell command, treat it as /run or /git
+            first_word = raw.split()[0].lower()
+            if first_word in ("ls", "dir", "cd", "pwd", "cls", "clear"):
+                # Safe navigation commands
+                if first_word == "cd":
+                    self._cmd_cd(raw[2:].strip())
+                elif first_word in ("ls", "dir"):
+                     self._cmd_ls(raw[2:].strip() or ".")
+                elif first_word == "pwd":
+                     console.print(f"  {D}{Path.cwd()}{R}\n")
+                elif first_word in ("cls", "clear"):
+                     self._clear()
+                continue
+            
+            if first_word == "git":
+                self._cmd_git(raw[3:].strip())
+                continue
+                
+            if first_word in ("curl", "wget", "npm", "uv", "pip", "python", "node", "docker", "grep", "cat", "echo", "mkdir", "rm", "rmdir"):
+                console.print(f"  {D}executing shell command...{R}")
+                self._cmd_run(raw)
                 continue
 
             self._ask(raw)
