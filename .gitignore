@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[oc]
+*.egg-info/
+build/
+dist/
+wheels/
+
+# Virtual environments
+.venv/
+venv/
+
+# Environment (contains secrets)
+.env
+
+# Mnemosyne local data
+.mnemosyne/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
