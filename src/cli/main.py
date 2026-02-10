@@ -32,13 +32,13 @@ def _version_callback(value: bool) -> None:
             v = version("mnemosyne")
         except Exception:
             v = "dev"
-        Console(highlight=False).print(f"mnemosyne {v}")
+        console.print(f"mnemosyne {v}")
         raise typer.Exit()
 
 
 app = typer.Typer(
     name="mnemosyne",
-    help="Mnemosyne -- Local agentic coding assistant with infinite context.",
+    help="Mnemosyne -- Autonomous agentic coding assistant with infinite context.",
     add_completion=False,
     no_args_is_help=True,
 )
@@ -53,7 +53,7 @@ def _main(
         is_eager=True,
     ),
 ) -> None:
-    """Mnemosyne -- Local agentic coding assistant with infinite context."""
+    """Mnemosyne -- Autonomous agentic coding assistant with infinite context."""
 
 # -- Valid providers for CLI help --------------------------------------------
 PROVIDER_HELP = "LLM provider override (google|anthropic|groq|openrouter|openai|ollama)."
@@ -332,7 +332,7 @@ def chat(
         help="Number of context chunks to retrieve per turn.",
     ),
 ) -> None:
-    """Launch an interactive chat session (Claude Code-style)."""
+    """Launch an interactive agent session (autonomous tool-calling)."""
     from src.cli.chat import ChatSession
 
     session = ChatSession(

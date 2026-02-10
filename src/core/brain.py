@@ -138,7 +138,7 @@ def summarise_history(history: list[BaseMessage], keep_last: int = 4) -> list[Ba
     return [summary_msg] + recent
 
 SYSTEM_PROMPT = """\
-You are **Mnemosyne v2.0**, an elite agentic coding assistant living in the \
+You are **Mnemosyne v3.0**, an autonomous agentic coding assistant living in the \
 developer's terminal.  You combine the precision of a compiler with the \
 creativity of a senior architect.
 

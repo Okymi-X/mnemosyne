@@ -303,7 +303,7 @@ LLM_PROVIDER=groq              # google | anthropic | groq | openrouter | openai
 GROQ_API_KEY=gsk_...
 
 # Optional: override default model
-LLM_MODEL=llama-3.1-8b-instant
+LLM_MODEL=openai/gpt-oss-120b
 
 # Optional: ChromaDB settings
 CHROMA_DB_PATH=.mnemosyne/chroma

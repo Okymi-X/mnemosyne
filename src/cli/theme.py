@@ -29,6 +29,7 @@ Y = "[bold yellow]"
 M = "[bold magenta]"
 W = "[bold white]"
 R = "[/]"
+A = "[bold #e5a00d]"  # Amber -- agent / tool calls
 
 OK   = "[bold green]>[/]"
 FAIL = "[bold red]x[/]"
@@ -36,6 +37,7 @@ WARN = "[bold yellow]![/]"
 INFO = "[bold cyan]~[/]"
 
 BRAND = f"{G}mnemosyne{R}"
+VERSION = "3.0"
 
 # ---------------------------------------------------------------------------
 # prompt-toolkit theme
@@ -46,7 +48,8 @@ PT_STYLE = PTStyle.from_dict({
     "path":            "#666666",
     "filter":          "#56c8d8",
     "readonly":        "#ff6b6b bold",
-    "bottom-toolbar":  "#555555 bg:#1a1a2e",
+    "agent":           "#e5a00d bold",
+    "bottom-toolbar":  "#555555 bg:#111122",
     "completion-menu": "bg:#1a1a2e #e0e0e0",
     "completion-menu.completion.current": "bg:#3a3a5e #ffffff bold",
 })
@@ -98,6 +101,21 @@ def fsize(n: int) -> str:
     if n < 1048576:
         return f"{n // 1024}K"
     return f"{n // 1048576}M"
+
+
+def tool_icon(name: str) -> str:
+    """Return a short icon/prefix for a tool name."""
+    icons = {
+        "read_file": ">>",
+        "list_directory": "ls",
+        "find_files": "??",
+        "grep_search": "//",
+        "search_codebase": "::",
+        "search_web": "~~",
+        "run_command": "$ ",
+    }
+    return icons.get(name, "->")
+
 
 
 def ext_tag(name: str) -> str:

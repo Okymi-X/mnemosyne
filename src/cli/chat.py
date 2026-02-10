@@ -1,6 +1,6 @@
 """
-Mnemosyne v2.0 -- Interactive Chat Session
-Slim REPL that delegates to modular command handlers.
+Mnemosyne v3.0 -- Interactive Agent Session
+REPL with autonomous tool-calling agent and modular command handlers.
 """
 
 from __future__ import annotations
@@ -24,8 +24,8 @@ from rich import box
 # Shared theme -- single source of truth
 from src.cli.theme import (
     console, PT_STYLE, TABLE_BOX, PATH_RE,
-    G, C, D, M, W, R, Y,
-    OK, FAIL, WARN, fsize,
+    G, C, D, M, W, R, Y, A,
+    OK, FAIL, WARN, fsize, tool_icon, VERSION,
 )
 
 # Command modules
@@ -68,7 +68,7 @@ def _make_completer() -> NestedCompleter:
 
     return NestedCompleter.from_nested_dict({
         "/help": None, "/clear": None, "/compact": None,
-        "/context": None, "/status": None,
+        "/context": None, "/status": None, "/tools": None,
         "/quit": None, "/exit": None,
         "/undo": None, "/writeall": None, "/readonly": None, "/copy": None,
         "/model": None,
@@ -114,6 +114,9 @@ def _welcome(provider: str, model: str, chunks: int | str) -> None:
 
     project_type = _detect_project()
 
+    from src.core.tools import TOOL_REGISTRY
+    tools_count = len(TOOL_REGISTRY)
+
     from src.core.gemini_cli import is_gemini_cli_installed, get_gemini_cli_version
     gemini_line = ""
     if is_gemini_cli_installed():
@@ -124,12 +127,13 @@ def _welcome(provider: str, model: str, chunks: int | str) -> None:
         f"   {D}provider{R}   {C}{provider}{R}\n"
         f"   {D}model{R}      {C}{model}{R}\n"
         f"   {D}indexed{R}    {W}{chunks}{R} {D}chunks{R}\n"
+        f"   {D}tools{R}      {A}{tools_count} available{R}\n"
         f"   {D}project{R}    {C}{project_type}{R}\n"
         f"   {D}cwd{R}        {D}{Path.cwd()}{R}"
         f"{gemini_line}"
     )
     console.print(Panel(
-        info, title=f"{G}v2.0{R}",
+        info, title=f"{G}v{VERSION}{R} {D}agent{R}",
         subtitle=f"{D}/ commands{R}  {D}|{R}  {D}Ctrl-C exit{R}",
         border_style="bright_green", padding=(0, 1),
     ))
@@ -181,7 +185,8 @@ def _help() -> None:
             ("/ingest [path]", "re-index codebase into vector store"),
             ("/cd <path>", "change working directory"),
         ]),
-        (f"{W}gemini{R}", [
+        (f"{W}agent{R}", [
+            ("/tools", "show available agent tools"),
             ("/gemini <query>", "delegate to Gemini CLI with RAG context"),
             ("/gemini-interactive", "launch full Gemini CLI session"),
         ]),
@@ -197,7 +202,8 @@ def _help() -> None:
 
     console.print()
     console.print(t)
-    console.print(f"\n  {D}shell commands work directly: ls, git, python, npm...{R}")
+    console.print(f"\n  {A}agent mode{R} {D}-- ask naturally, tools run automatically{R}")
+    console.print(f"  {D}shell commands work directly: ls, git, python, npm...{R}")
     console.print(f"  {D}multi-line input: wrap in triple-quotes{R}\n")
 
 
@@ -250,6 +256,7 @@ class ChatSession:
         self.readonly: bool = False
         self.filter_ext: set[str] | None = None
         self._files_written: int = 0
+        self._last_tool_count: int = 0
 
         # Mutable holders so command modules can update these
         self._provider: list[str | None] = [provider_override]
@@ -298,9 +305,12 @@ class ChatSession:
 
         parts = [
             f" <b>{prov}</b> <style bg='#2a2a4e' fg='#888888'> {model} </style>",
+            f" <style fg='#e5a00d'>agent</style>",
             f" t:{self.turns}",
             f" ~{tok_display} tok",
         ]
+        if self._last_tool_count > 0:
+            parts.append(f" <style fg='#e5a00d'>{self._last_tool_count} tools</style>")
         if self.filter_ext:
             f = ",".join(sorted(self.filter_ext))
             parts.append(f" <style fg='#56c8d8'>{f}</style>")
@@ -310,10 +320,10 @@ class ChatSession:
             parts.append(f" <style fg='#a8e6cf'>{self._files_written} written</style>")
         return HTML("  ".join(parts))
 
-    # -- Core: stream + respond --------------------------------------------
+    # -- Core: agent-powered respond ----------------------------------------
 
     def _ask(self, q: str) -> None:
-        from src.core.brain import ask_streaming
+        from src.core.agent import run_agent, AgentStep
 
         injected = _auto_read_paths(q, self.history)
         if injected:
@@ -328,78 +338,137 @@ class ChatSession:
         if self.filter_ext:
             fmeta = {"extension": {"$in": list(self.filter_ext)}}
 
-        sys.stdout.write("  \033[2mthinking...\033[0m\r")
-        sys.stdout.flush()
+        # -- Agent event handler (renders tool calls in real-time) ---------
+        step_count = 0
+        tool_count = 0
 
-        tokens: list[str] = []
-        sources: list[str] = []
-        first_tok = True
+        def on_event(event: str, data: dict) -> None:
+            nonlocal step_count, tool_count
+
+            if event == "thinking":
+                step = data.get("step", 1)
+                label = "reasoning" if step == 1 else f"step {step}"
+                sys.stdout.write(f"  \033[2m{label}...\033[0m\r")
+                sys.stdout.flush()
+
+            elif event == "thinking_block":
+                sys.stdout.write("\r\033[K")
+                text = data.get("text", "")
+                if text:
+                    preview = text[:300].replace("\n", " ").strip()
+                    console.print(f"  {M}-- reasoning --{R}")
+                    console.print(f"  {D}{preview}{R}")
+                    console.print(f"  {M}---------------{R}")
+                    console.print()
+
+            elif event == "reasoning":
+                sys.stdout.write("\r\033[K")
+                text = data.get("text", "")
+                if text:
+                    preview = text[:250].replace("\n", " ").strip()
+                    if preview:
+                        console.print(f"  {D}{preview}{R}")
+                        console.print()
+
+            elif event == "tool_start":
+                sys.stdout.write("\r\033[K")
+
+            elif event == "tool_end":
+                tc = data.get("call")
+                tr = data.get("result")
+                if tc and tr:
+                    tool_count += 1
+                    icon = tool_icon(tc.name)
+                    params_preview = " ".join(
+                        str(v)[:50] for v in tc.params.values()
+                    )
+                    if tr.success:
+                        # Show first meaningful line of output
+                        out_lines = [
+                            l.strip() for l in tr.output.split("\n")
+                            if l.strip() and not l.startswith("[")
+                        ]
+                        out_preview = out_lines[0][:70] if out_lines else ""
+                        console.print(
+                            f"  {A}{icon}{R} {C}{tc.name}{R}  "
+                            f"{D}{params_preview}{R}"
+                        )
+                        if out_preview:
+                            console.print(
+                                f"     {D}{out_preview}"
+                                f"{'...' if len(out_preview) >= 70 else ''}{R}"
+                                f"  {D}{tr.duration:.1f}s{R}"
+                            )
+                        else:
+                            console.print(f"     {D}{tr.duration:.1f}s{R}")
+                    else:
+                        console.print(
+                            f"  [bold red]x[/] {C}{tc.name}{R}  "
+                            f"{D}{params_preview}{R}"
+                        )
+                        console.print(
+                            f"     {D}{tr.output[:60]}{R}"
+                        )
+                    console.print()
+
+            elif event == "step_done":
+                step_obj = data.get("step")
+                if step_obj and not step_obj.is_final:
+                    step_count += 1
+
+            elif event == "error":
+                sys.stdout.write("\r\033[K")
+                console.print(f"  {FAIL} {data.get('error', 'unknown error')}")
+
+        # -- Run agent -----------------------------------------------------
         t0 = time.perf_counter()
-        in_thinking = False
-
         try:
-            gen = ask_streaming(
-                q, history=self.history or None, n_results=self.n_results,
+            response = run_agent(
+                q,
+                history=self.history or None,
+                n_results=self.n_results,
                 provider_override=self.provider_override,
                 model_override=self.model_override,
                 filter_meta=fmeta,
+                on_event=on_event,
             )
-            for tok in gen:
-                if first_tok:
-                    sys.stdout.write("\r\033[K")
-                    sys.stdout.flush()
-                    first_tok = False
-
-                if "<thinking>" in tok:
-                    in_thinking = True
-                    tok = tok.replace("<thinking>", "")
-                    console.print(f"\n  {M}-- reasoning --{R}")
-
-                if "</thinking>" in tok:
-                    in_thinking = False
-                    tok = tok.replace("</thinking>", "")
-                    console.print(f"\n  {M}---------------{R}\n")
-
-                tokens.append(tok)
-                if not in_thinking:
-                    sys.stdout.write(tok)
-                    sys.stdout.flush()
-
-        except StopIteration as e:
-            if e.value:
-                _, sources = e.value
         except Exception as exc:
             sys.stdout.write("\r\033[K")
             console.print(f"\n  {FAIL} {exc}\n")
             return
 
+        elapsed = time.perf_counter() - t0
+        sys.stdout.write("\r\033[K")  # Clear any residual spinner
+
+        full = response.answer
+        self.last = full
+        self._last_tool_count = tool_count
+
+        # -- Display final answer ------------------------------------------
+        if step_count > 0:
+            console.print(Rule(f"{D}answer{R}", style="dim"))
+            console.print()
+
+        sys.stdout.write(full)
         sys.stdout.write("\n")
         sys.stdout.flush()
 
-        elapsed = time.perf_counter() - t0
-        full = "".join(tokens)
-        self.last = full
+        # -- Stats ---------------------------------------------------------
+        tok_est = len(full) // 4
+        parts_s: list[str] = [f"~{tok_est} tok", f"{elapsed:.1f}s"]
+        if step_count > 0:
+            parts_s.append(f"{step_count + 1} steps")
+        if tool_count > 0:
+            parts_s.append(f"{tool_count} tools")
+        console.print(f"\n  {D}{' / '.join(parts_s)}{R}")
 
-        if not sources:
-            try:
-                from src.core.vector_store import query as vq
-                seen: set[str] = set()
-                for r in vq(q, n_results=self.n_results, filter_meta=fmeta):
-                    if r.source not in seen:
-                        seen.add(r.source)
-                        sources.append(r.source)
-            except Exception:
-                pass
-
-        tps = len(tokens) / elapsed if elapsed > 0 else 0
-        console.print(f"\n  {D}{len(tokens)} tok / {elapsed:.1f}s / {tps:.0f} tok/s{R}")
-        if sources:
-            src_list = ", ".join(sources[:5])
-            if len(sources) > 5:
-                src_list += f" +{len(sources) - 5}"
+        if response.sources:
+            src_list = ", ".join(response.sources[:6])
+            if len(response.sources) > 6:
+                src_list += f" +{len(response.sources) - 6}"
             console.print(f"  {D}from: {src_list}{R}")
 
-        # Detect files in response
+        # -- Detect files in response --------------------------------------
         files = dedup_files(extract_blocks(full))
         if files:
             console.print()
@@ -510,6 +579,7 @@ class ChatSession:
             "/gemini-interactive": lambda: cmd_gemini_interactive(),
             "/lint":      lambda: cmd_lint(a),
             "/copy":      lambda: cmd_copy(self.last),
+            "/tools":     lambda: self._show_tools(),
         }
 
         handler = cmds.get(c, "UNKNOWN")
@@ -537,6 +607,8 @@ class ChatSession:
         est_tokens = total_chars // 4
         parts: list[str] = [f"{self.turns} turns"]
         parts.append(f"~{est_tokens:,} tokens")
+        if self._last_tool_count:
+            parts.append(f"{self._last_tool_count} tool calls")
         if self._files_written:
             parts.append(f"{self._files_written} files")
         console.print(Rule(f"{D}{' / '.join(parts)}{R}", style="bright_green"))
@@ -547,6 +619,7 @@ class ChatSession:
         self.turns = 0
         self.last = ""
         self.last_writes.clear()
+        self._last_tool_count = 0
         console.print(f"  {OK} cleared\n")
 
     def _compact(self) -> None:
@@ -558,6 +631,25 @@ class ChatSession:
         self.history = summarise_history(self.history, keep_last=4)
         removed = old_len - len(self.history)
         console.print(f"  {OK} compacted {removed} messages -> {len(self.history)} remaining\n")
+
+    def _show_tools(self) -> None:
+        """Display available agent tools."""
+        from src.core.tools import TOOL_REGISTRY
+        t = Table(
+            box=TABLE_BOX, show_header=True, header_style="bold #e5a00d",
+            title=f"{A}agent tools{R}", title_style="",
+            padding=(0, 2), show_edge=False,
+        )
+        t.add_column("tool", style="bold cyan", min_width=18, no_wrap=True)
+        t.add_column("params", style="dim", min_width=20)
+        t.add_column("description", style="dim white")
+        for name, tool in TOOL_REGISTRY.items():
+            icon = tool_icon(name)
+            params = ", ".join(tool.parameters.keys())
+            t.add_row(f"{A}{icon}{R} {name}", params, tool.description)
+        console.print()
+        console.print(t)
+        console.print(f"\n  {D}tools are called automatically by the agent during conversations{R}\n")
 
     def _context(self) -> None:
         t = Table(

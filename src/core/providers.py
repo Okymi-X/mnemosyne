@@ -43,7 +43,7 @@ PROVIDERS: dict[str, ProviderSpec] = {
     ),
     "groq": ProviderSpec(
         label="Groq",
-        default_model="llama-3.3-70b-versatile",
+        default_model="openai/gpt-oss-120b",
         key_field="groq_api_key",
         factory="langchain_groq:ChatGroq",
     ),
