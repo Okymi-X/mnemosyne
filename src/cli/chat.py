@@ -814,7 +814,7 @@ class ChatSession:
         model_display = self.model_override or p["model"]
         prov_display = self.provider_override or p["provider"]
         try:
-            dc = get_or_create_collection().count()
+            dc: int | str = get_or_create_collection().count()
         except Exception:
             dc = "?"
 

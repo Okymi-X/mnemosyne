@@ -233,7 +233,7 @@ def query_headless(
     finally:
         if tmp:
             with contextlib.suppress(OSError):
-                os.unlink(tmp.name)
+                os.unlink(tmp.path)
 
 
 def query_streaming(
@@ -299,7 +299,7 @@ def query_streaming(
     finally:
         if tmp:
             with contextlib.suppress(OSError):
-                os.unlink(tmp.name)
+                os.unlink(tmp.path)
 
 
 def launch_interactive(
