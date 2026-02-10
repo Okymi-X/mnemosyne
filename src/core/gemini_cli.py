@@ -18,6 +18,16 @@ from rich.console import Console
 
 console = Console(highlight=False)
 
+# On Windows, npm-installed CLIs are .cmd wrappers that need shell=True
+# or the fully-resolved path.  We cache the lookup once.
+_GEMINI_PATH: str | None = shutil.which("gemini")
+_USE_SHELL = sys.platform == "win32" and (_GEMINI_PATH or "").lower().endswith(".cmd")
+
+
+def _gemini_cmd() -> str:
+    """Return the resolved gemini executable path (or just 'gemini')."""
+    return _GEMINI_PATH or "gemini"
+
 
 # ---------------------------------------------------------------------------
 # Detection & status
@@ -26,17 +36,18 @@ console = Console(highlight=False)
 
 def is_gemini_cli_installed() -> bool:
     """Check if Gemini CLI (gemini) is available on PATH."""
-    return shutil.which("gemini") is not None
+    return _GEMINI_PATH is not None
 
 
 def get_gemini_cli_version() -> str | None:
     """Return the installed Gemini CLI version, or None."""
     try:
         r = subprocess.run(
-            ["gemini", "--version"],
+            [_gemini_cmd(), "--version"],
             capture_output=True,
             text=True,
             timeout=10,
+            shell=_USE_SHELL,
         )
         if r.returncode == 0:
             return r.stdout.strip()
@@ -112,6 +123,58 @@ class GeminiCLIResult:
     error: str = ""
 
 
+# Windows command-line length limit (8191 chars).  When the prompt
+# exceeds this we write it to a temp file and pass the path instead.
+_CMD_LINE_LIMIT = 7_500
+
+
+def _prompt_args_and_stdin(
+    prompt: str,
+) -> tuple[list[str], str | None, "_PromptTempFile | None"]:
+    """
+    Decide how to pass *prompt* to Gemini CLI.
+
+    * Short prompts  -> ``["-p", prompt]`` as CLI args.
+    * Long prompts   -> write to a temp file and pass
+      ``["-p", "@<path>"]`` (Gemini CLI's file reference syntax),
+      or fall back to piping via stdin with ``["--stdin"]``.
+
+    Returns ``(extra_args, stdin_text, temp_file_handle)``.
+    The caller must keep the temp-file handle alive until the
+    subprocess completes, then delete it.
+    """
+    import tempfile
+
+    if len(prompt) <= _CMD_LINE_LIMIT:
+        return (["-p", prompt], None, None)
+
+    # Write to a temp file so the command line stays short
+    tmp = tempfile.NamedTemporaryFile(
+        mode="w",
+        suffix=".md",
+        prefix="mnemosyne_gemini_",
+        delete=False,
+        encoding="utf-8",
+    )
+    tmp.write(prompt)
+    tmp.flush()
+    tmp.close()  # close so Gemini can read it on Windows
+    return (["-p", f"@{tmp.name}"], None, tmp)
+
+
+class _PromptTempFile:
+    """Thin wrapper so callers can clean up the temp file."""
+
+    def __init__(self, path: str) -> None:
+        self.path = path
+
+    def cleanup(self) -> None:
+        try:
+            os.unlink(self.path)
+        except OSError:
+            pass
+
+
 def query_headless(
     prompt: str,
     *,
@@ -132,7 +195,8 @@ def query_headless(
             error="Gemini CLI is not installed. " + get_install_instructions(),
         )
 
-    cmd: list[str] = ["gemini", "-p", prompt]
+    prompt_args, stdin_text, tmp = _prompt_args_and_stdin(prompt)
+    cmd: list[str] = [_gemini_cmd()] + prompt_args
 
     if model:
         cmd.extend(["-m", model])
@@ -150,8 +214,10 @@ def query_headless(
             cmd,
             capture_output=True,
             text=True,
+            input=stdin_text,
             timeout=timeout,
             cwd=work_dir,
+            shell=_USE_SHELL,
         )
         return GeminiCLIResult(
             output=r.stdout.strip(),
@@ -171,6 +237,12 @@ def query_headless(
             exit_code=-3,
             error=str(exc),
         )
+    finally:
+        if tmp:
+            try:
+                os.unlink(tmp.name)
+            except OSError:
+                pass
 
 
 def query_streaming(
@@ -188,7 +260,8 @@ def query_streaming(
         yield f"[Error] Gemini CLI not installed.\n{get_install_instructions()}\n"
         return -1
 
-    cmd: list[str] = ["gemini", "-p", prompt]
+    prompt_args, stdin_text, tmp = _prompt_args_and_stdin(prompt)
+    cmd: list[str] = [_gemini_cmd()] + prompt_args
 
     if model:
         cmd.extend(["-m", model])
@@ -203,11 +276,18 @@ def query_streaming(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            stdin=subprocess.PIPE if stdin_text else None,
             text=True,
             cwd=work_dir,
             env={**os.environ},
             bufsize=1,
+            shell=_USE_SHELL,
         )
+
+        # If we piped the prompt via stdin, send it and close
+        if stdin_text and proc.stdin:
+            proc.stdin.write(stdin_text)
+            proc.stdin.close()
 
         if proc.stdout:
             for line in proc.stdout:
@@ -225,6 +305,12 @@ def query_streaming(
     except Exception as exc:
         yield f"\n[Error] {exc}\n"
         return -3
+    finally:
+        if tmp:
+            try:
+                os.unlink(tmp.name)
+            except OSError:
+                pass
 
 
 def launch_interactive(
@@ -241,7 +327,7 @@ def launch_interactive(
         console.print(f"[red][-][/red] Gemini CLI not installed.\n[dim]{get_install_instructions()}[/dim]")
         return -1
 
-    cmd: list[str] = ["gemini"]
+    cmd: list[str] = [_gemini_cmd()]
 
     if model:
         cmd.extend(["-m", model])
@@ -252,7 +338,7 @@ def launch_interactive(
     work_dir = str(cwd) if cwd else None
 
     try:
-        r = subprocess.run(cmd, cwd=work_dir)
+        r = subprocess.run(cmd, cwd=work_dir, shell=_USE_SHELL)
         return r.returncode
     except KeyboardInterrupt:
         return 0

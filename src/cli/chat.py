@@ -1,5 +1,5 @@
 """
-Mnemosyne v3.0 -- Interactive Agent Session
+Mnemosyne v3.1 -- Interactive Agent Session
 REPL with autonomous tool-calling agent and modular command handlers.
 """
 
@@ -16,9 +16,11 @@ from prompt_toolkit.completion import NestedCompleter, PathCompleter, WordComple
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import InMemoryHistory
 from rich import box
+from rich.align import Align
 from rich.panel import Panel
 from rich.rule import Rule
 from rich.table import Table
+from rich.text import Text
 
 # Command modules
 from src.cli.commands.files import (
@@ -68,6 +70,7 @@ from src.cli.theme import (
     PATH_RE,
     PT_STYLE,
     TABLE_BOX,
+    TIPS,
     VERSION,
     WARN,
     A,
@@ -79,6 +82,9 @@ from src.cli.theme import (
     W,
     Y,
     console,
+    get_git_branch,
+    get_git_dirty,
+    render_banner,
     tool_icon,
 )
 
@@ -89,6 +95,10 @@ from src.cli.theme import (
 
 def _prompt(readonly: bool, filter_set: set[str] | None) -> HTML:
     parts = ["<path>" + Path.cwd().name + "</path>"]
+    branch = get_git_branch()
+    if branch:
+        dirty = "*" if get_git_dirty() else ""
+        parts.append(f"<path>({branch}{dirty})</path>")
     if readonly:
         parts.append("<readonly> ro </readonly>")
     if filter_set:
@@ -177,7 +187,12 @@ def _detect_project() -> str:
 
 def _welcome(provider: str, model: str, chunks: int | str) -> None:
     console.print()
-    console.print("  [bold bright_green]m n e m o s y n e[/]")
+
+    # Gradient ASCII banner
+    banner = render_banner()
+    console.print(Align.center(banner))
+    console.print()
+    console.print(Align.center(Text(f"v{VERSION} · agentic coding assistant", style="dim")))
     console.print()
 
     project_type = _detect_project()
@@ -205,12 +220,16 @@ def _welcome(provider: str, model: str, chunks: int | str) -> None:
     console.print(
         Panel(
             info,
-            title=f"{G}v{VERSION}{R} {D}agent{R}",
-            subtitle=f"{D}/ commands{R}  {D}|{R}  {D}Ctrl-C exit{R}",
             border_style="bright_green",
             padding=(0, 1),
         )
     )
+    console.print()
+
+    # Tips for getting started
+    console.print(f"  {D}Tips for getting started:{R}")
+    for i, tip in enumerate(TIPS, 1):
+        console.print(f"  {D}{i}.{R} {tip}")
     console.print()
 
 
@@ -224,12 +243,12 @@ def _help() -> None:
         title_style="",
         show_edge=False,
     )
-    t.add_column("command", style="bright_green", min_width=20, no_wrap=True)
+    t.add_column("command", style="bright_green", min_width=22, no_wrap=True)
     t.add_column("description", style="dim white")
 
     sections = [
         (
-            f"{W}conversation{R}",
+            f"{W}💬 conversation{R}",
             [
                 ("/clear", "reset conversation history"),
                 ("/compact", "smart-trim old turns to save context"),
@@ -239,7 +258,7 @@ def _help() -> None:
             ],
         ),
         (
-            f"{W}model{R}",
+            f"{W}🤖 model{R}",
             [
                 ("/model <name>", "switch model mid-session"),
                 ("/provider <name>", "switch LLM provider"),
@@ -248,7 +267,7 @@ def _help() -> None:
             ],
         ),
         (
-            f"{W}files{R}",
+            f"{W}📁 files{R}",
             [
                 ("/read <path>", "load file into context"),
                 ("/write <path>", "write last code block to disk"),
@@ -259,7 +278,7 @@ def _help() -> None:
             ],
         ),
         (
-            f"{W}search{R}",
+            f"{W}🔍 search{R}",
             [
                 ("/ls [path]", "list directory tree"),
                 ("/find <pattern>", "find files by name pattern"),
@@ -269,7 +288,7 @@ def _help() -> None:
             ],
         ),
         (
-            f"{W}system{R}",
+            f"{W}⚡ system{R}",
             [
                 ("/run <cmd>", "execute shell command"),
                 ("/git <args>", "git with smart commit messages"),
@@ -279,7 +298,7 @@ def _help() -> None:
             ],
         ),
         (
-            f"{W}agent{R}",
+            f"{W}🧠 agent{R}",
             [
                 ("/tools", "show available agent tools"),
                 ("/gemini <query>", "delegate to Gemini CLI with RAG context"),
@@ -298,8 +317,8 @@ def _help() -> None:
 
     console.print()
     console.print(t)
-    console.print(f"\n  {A}agent mode{R} {D}-- ask naturally, tools run automatically{R}")
-    console.print(f"  {D}shell commands work directly: ls, git, python, npm...{R}")
+    console.print(f"\n  {A}agent mode{R} {D}── ask naturally, tools run automatically{R}")
+    console.print(f"  {D}shell commands work directly:{R} ls, git, python, npm …")
     console.print(f"  {D}multi-line input: wrap in triple-quotes{R}\n")
 
 
@@ -401,22 +420,32 @@ class ChatSession:
         est_tokens = total_chars // 4
         tok_display = f"{est_tokens:,}" if est_tokens > 0 else "0"
 
-        parts = [
-            f" <b>{prov}</b> <style bg='#2a2a4e' fg='#888888'> {model} </style>",
-            " <style fg='#e5a00d'>agent</style>",
-            f" t:{self.turns}",
-            f" ~{tok_display} tok",
+        # Left side: project + git
+        left_parts: list[str] = [f" <b>{Path.cwd().name}</b>"]
+        branch = get_git_branch()
+        if branch:
+            dirty = "*" if get_git_dirty() else ""
+            left_parts.append(f"<style fg='#888888'>({branch}{dirty})</style>")
+
+        # Right side: provider, model, stats
+        right_parts: list[str] = [
+            "<style fg='#e5a00d'>agent</style>",
+            f"<style bg='#2a2a4e' fg='#aaaaaa'> {prov} ({model}) </style>",
+            f"<style fg='#666666'>t:{self.turns} ~{tok_display}tok</style>",
         ]
         if self._last_tool_count > 0:
-            parts.append(f" <style fg='#e5a00d'>{self._last_tool_count} tools</style>")
+            right_parts.append(f"<style fg='#e5a00d'>{self._last_tool_count} tools</style>")
         if self.filter_ext:
             f = ",".join(sorted(self.filter_ext))
-            parts.append(f" <style fg='#56c8d8'>{f}</style>")
+            right_parts.append(f"<style fg='#56c8d8'>{f}</style>")
         if self.readonly:
-            parts.append(" <style bg='#ff4444' fg='white'> RO </style>")
+            right_parts.append("<style bg='#ff4444' fg='white'> RO </style>")
         if self._files_written:
-            parts.append(f" <style fg='#a8e6cf'>{self._files_written} written</style>")
-        return HTML("  ".join(parts))
+            right_parts.append(f"<style fg='#a8e6cf'>{self._files_written} written</style>")
+
+        left = " ".join(left_parts)
+        right = "  ".join(right_parts)
+        return HTML(f"{left}    {right}")
 
     # -- Core: agent-powered respond ----------------------------------------
 
@@ -446,7 +475,7 @@ class ChatSession:
             if event == "thinking":
                 step = data.get("step", 1)
                 label = "reasoning" if step == 1 else f"step {step}"
-                sys.stdout.write(f"  \033[2m{label}...\033[0m\r")
+                sys.stdout.write(f"  \033[2m⟳ {label}…\033[0m\r")
                 sys.stdout.flush()
 
             elif event == "thinking_block":
@@ -454,9 +483,9 @@ class ChatSession:
                 text = data.get("text", "")
                 if text:
                     preview = text[:300].replace("\n", " ").strip()
-                    console.print(f"  {M}-- reasoning --{R}")
+                    console.print(f"  {M}── reasoning ──{R}")
                     console.print(f"  {D}{preview}{R}")
-                    console.print(f"  {M}---------------{R}")
+                    console.print(f"  {M}───────────────{R}")
                     console.print()
 
             elif event == "reasoning":
@@ -545,7 +574,7 @@ class ChatSession:
             parts_s.append(f"{step_count + 1} steps")
         if tool_count > 0:
             parts_s.append(f"{tool_count} tools")
-        console.print(f"\n  {D}{' / '.join(parts_s)}{R}")
+        console.print(f"\n  {D}{' │ '.join(parts_s)}{R}")
 
         if response.sources:
             src_list = ", ".join(response.sources[:6])
@@ -702,7 +731,8 @@ class ChatSession:
             parts.append(f"{self._last_tool_count} tool calls")
         if self._files_written:
             parts.append(f"{self._files_written} files")
-        console.print(Rule(f"{D}{' / '.join(parts)}{R}", style="bright_green"))
+        console.print(Rule(f"{D}{' │ '.join(parts)}{R}", style="bright_green"))
+        console.print(f"  {D}goodbye.{R}")
         console.print()
 
     def _clear(self) -> None:
@@ -765,14 +795,14 @@ class ChatSession:
         for i, m in enumerate(self.history):
             role = f"{G}user{R}" if isinstance(m, HumanMessage) else f"{C}assistant{R}"
             preview = (m.content[:60] if isinstance(m.content, str) else str(m.content)[:60]).replace("\n", " ") + (
-                "..." if len(str(m.content)) > 60 else ""
+                "…" if len(str(m.content)) > 60 else ""
             )
             t.add_row(str(i), role, preview, str(len(str(m.content))))
         console.print()
         console.print(t)
         total_chars = sum(len(str(m.content)) for m in self.history)
         est_tokens = total_chars // 4
-        console.print(f"\n  {D}{len(self.history)} messages | ~{est_tokens:,} tokens | {self.turns} turns{R}\n")
+        console.print(f"\n  {D}{len(self.history)} messages │ ~{est_tokens:,} tokens │ {self.turns} turns{R}\n")
 
     def _status(self) -> None:
         from src.core.config import get_config
@@ -877,10 +907,11 @@ class ChatSession:
             # Smart shell detection
             first = raw.split()[0].lower()
             if first in ("ls", "dir", "cd", "pwd", "cls", "clear"):
+                rest_arg = raw[len(first):].strip()
                 if first == "cd":
-                    cmd_cd(raw[2:].strip(), self._check_index)
+                    cmd_cd(rest_arg, self._check_index)
                 elif first in ("ls", "dir"):
-                    cmd_ls(raw[2:].strip() or ".")
+                    cmd_ls(rest_arg or ".")
                 elif first == "pwd":
                     console.print(f"  {D}{Path.cwd()}{R}\n")
                 elif first in ("cls", "clear"):
@@ -889,6 +920,17 @@ class ChatSession:
 
             if first == "git":
                 cmd_git(raw[3:].strip(), self.provider_override, self.model_override)
+                continue
+
+            if first == "gemini":
+                cmd_gemini(
+                    raw[6:].strip(),
+                    self.history,
+                    self.filter_ext,
+                    [self.last],
+                    self.readonly,
+                    self._confirm,
+                )
                 continue
 
             if first in (

@@ -1,10 +1,10 @@
 <p align="center">
   <h1 align="center">mnemosyne</h1>
   <p align="center">
-    <strong>Local, agentic coding assistant with infinite context.</strong>
+    <strong>Autonomous agentic coding assistant with infinite context.</strong>
   </p>
   <p align="center">
-    RAG-powered CLI that indexes your codebase, remembers everything, and acts on it -- with adaptive retrieval, deep reasoning, and smart context.
+    RAG-powered CLI that indexes your codebase, remembers everything, and acts on it — with adaptive retrieval, deep reasoning, and smart context.
   </p>
 </p>
 
@@ -21,24 +21,32 @@
 
 ## What is Mnemosyne?
 
-Mnemosyne is a **local-first coding assistant** that runs entirely in your terminal. It ingests your codebase into a local vector database (ChromaDB), then uses RAG to give any LLM deep, accurate knowledge about your project -- no cloud uploads, no token limits.
+Mnemosyne is a **local-first coding assistant** that runs entirely in your terminal. It ingests your codebase into a local vector database (ChromaDB), then uses RAG to give any LLM deep, accurate knowledge about your project — no cloud uploads, no token limits.
 
-It includes an **interactive agentic REPL** (v2.0) with **Deep Reasoning**, **Adaptive Context Retrieval**, **Query Rewriting**, **Smart Conversation Compaction**, **Git Intelligence** and a full suite of file operations. It can create files, run commands, search your codebase, generate commit messages, and scaffold entire projects -- all from a single terminal session.
+It includes an **interactive agentic REPL** (v3.1) with **Deep Reasoning**, **Adaptive Context Retrieval**, **Query Rewriting**, **Smart Conversation Compaction**, **Git Intelligence** and a full suite of file operations. It can create files, run commands, search your codebase, generate commit messages, and scaffold entire projects — all from a single terminal session.
 
 ```
-  ┏┳┓┏┓┏┓┏┳┓┏┓┏━┓┓ ┏┏┓┏┓
-  ┃┃┃┃┃┣ ┃┃┃┃┃┗━┓┗┳┛┃┃┣
-  ┛ ┗┛┗┗┛┛ ┗┗┛┗━┛ ┻ ┛┗┗┛
+  █▄ ▄█ █▄  █ █▀▀▀ █▄ ▄█ ▄▀▀▀▄ ▄▀▀▀  ▀▄ ▄▀ █▄  █ █▀▀▀
+  █ ▀ █ █ █ █ █▀▀  █ ▀ █ █   █  ▀█▄   █   █ █ █ █▀▀
+  █   █ █  ▀█ █▄▄▄ █   █ ▀▄▄▄▀  ▄▄▄▀  █   █  ▀█ █▄▄▄
 
-╭─ v2.0 ───────────────────────────────────────╮
-│   provider   Google Gemini                   │
-│   model      gemini-2.0-flash                │
-│   indexed    46 chunks                       │
-│   project    Python                          │
-│   cwd        ~/myproject                     │
-╰──────── Type / for commands │ Ctrl-C to exit ╯
+              v3.1 · agentic coding assistant
 
-myproject > explain how auth works in this codebase
+╭─────────────────────────────────────────────╮
+│   provider   Google Gemini                  │
+│   model      gemini-2.0-flash               │
+│   indexed    46 chunks                      │
+│   tools      7 available                    │
+│   project    Python                         │
+│   cwd        ~/myproject                    │
+╰─────────────────────────────────────────────╯
+
+  Tips for getting started:
+  1. Ask questions, edit files, or run commands.
+  2. Be specific for the best results.
+  3. /help for more information.
+
+myproject (main) › explain how auth works in this codebase
 ```
 
 ---
@@ -267,10 +275,14 @@ mnemosyne forget            # Wipe the knowledge base
 src/
 ├── cli/
 │   ├── main.py          # Typer CLI (init, ingest, ask, chat, gemini, status, forget)
-│   └── chat.py          # Interactive agentic REPL v2.0
+│   ├── chat.py          # Interactive agentic REPL v3.1
+│   ├── theme.py         # Shared visual constants, gradient banner, styling
+│   └── commands/        # Modular command handlers (files, model, search, shell)
 └── core/
     ├── config.py        # Pydantic-settings configuration
     ├── providers.py     # LLM provider factory (6 providers)
+    ├── agent.py         # Autonomous tool-calling agent loop
+    ├── tools.py         # Agent tool registry & implementations
     ├── ingester.py      # Smart file scanner + language-aware chunker + priority scoring
     ├── vector_store.py  # ChromaDB persistence layer
     ├── brain.py         # RAG engine (adaptive retrieval + query rewriting + streaming)
@@ -342,5 +354,5 @@ MIT
 ---
 
 <p align="center">
-  <sub>Built with LangChain, ChromaDB, and an unreasonable amount of terminal obsession.</sub>
+  <sub>Built with LangChain, ChromaDB, and an unreasonable amount of terminal obsession. v3.1</sub>
 </p>

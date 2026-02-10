@@ -1,5 +1,5 @@
 """
-Mnemosyne v3.0 -- CLI Entry Point
+Mnemosyne v3.1 -- CLI Entry Point
 Typer interface built with Rich.
 """
 
@@ -40,9 +40,10 @@ def _version_callback(value: bool) -> None:
 
 app = typer.Typer(
     name="mnemosyne",
-    help="Mnemosyne -- Autonomous agentic coding assistant with infinite context.",
+    help="Mnemosyne — Autonomous agentic coding assistant with infinite context.",
     add_completion=False,
     no_args_is_help=True,
+    rich_markup_mode="rich",
 )
 
 
@@ -57,7 +58,7 @@ def _main(
         is_eager=True,
     ),
 ) -> None:
-    """Mnemosyne -- Autonomous agentic coding assistant with infinite context."""
+    """Mnemosyne — Autonomous agentic coding assistant with infinite context."""
 
 
 # -- Valid providers for CLI help --------------------------------------------
@@ -99,7 +100,7 @@ def init(
             f"{OK} {BRAND} initialised at [bold cyan]{root}[/bold cyan]\n   db: [dim]{mnemosyne_dir / 'chroma'}[/dim]",
             title="[bright_green]init[/bright_green]",
             border_style="bright_green",
-            padding=(0, 1),
+            padding=(0, 2),
         )
     )
 
@@ -165,7 +166,7 @@ def ingest(
             f"{OK} [bold green]{written}[/bold green] chunks from [bold]{len(docs)}[/bold] files",
             title="[bright_green]ingested[/bright_green]",
             border_style="bright_green",
-            padding=(0, 1),
+            padding=(0, 2),
         )
     )
 
@@ -197,7 +198,7 @@ def ask(
     """Ask a question about your ingested codebase."""
     from src.core.brain import ask as brain_ask
 
-    console.print(f"\n{OK} {BRAND} is thinking ...\n")
+    console.print(f"\n{OK} {BRAND} is thinking …\n")
 
     with console.status("[bright_green]Retrieving & generating...[/bright_green]"):
         result = brain_ask(
@@ -216,7 +217,7 @@ def ask(
             Markdown(result.answer),
             title="[bright_green]answer[/bright_green]",
             border_style="bright_green",
-            padding=(1, 2),
+            padding=(1, 3),
         )
     )
 

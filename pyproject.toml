@@ -1,6 +1,6 @@
 [project]
 name = "mnemosyne"
-version = "3.0.0"
+version = "3.1.0"
 description = "Autonomous agentic coding assistant with infinite context. RAG-powered CLI with tool-calling agent loop, adaptive retrieval, and deep reasoning."
 readme = "README.md"
 license = "MIT"
