@@ -52,3 +52,20 @@ def get_config() -> MnemosyneConfig:
     if not os.path.isabs(cfg.chroma_db_path):
         cfg.chroma_db_path = os.path.abspath(cfg.chroma_db_path)
     return cfg
+
+
+def resolve_config(
+    provider_override: str | None = None,
+    model_override: str | None = None,
+) -> MnemosyneConfig:
+    """Return a config with optional provider/model overrides applied."""
+    cfg = get_config()
+    needs_rebuild = False
+    d = cfg.model_dump()
+    if provider_override:
+        d["llm_provider"] = provider_override
+        needs_rebuild = True
+    if model_override:
+        d["llm_model"] = model_override
+        needs_rebuild = True
+    return MnemosyneConfig(**d) if needs_rebuild else cfg

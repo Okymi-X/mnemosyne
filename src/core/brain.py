@@ -15,7 +15,7 @@ from typing import Any
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from rich.console import Console
 
-from src.core.config import MnemosyneConfig, get_config
+from src.core.config import resolve_config
 from src.core.providers import get_llm
 from src.core.vector_store import QueryResult
 from src.core.vector_store import query as vector_query
@@ -119,7 +119,7 @@ def summarise_history(history: list[BaseMessage], keep_last: int = 4) -> list[Ba
 
     for m in old:
         role = "User" if isinstance(m, HumanMessage) else "Assistant"
-        content = m.content
+        content = m.content if isinstance(m.content, str) else str(m.content)
 
         # Keep track of file references for continuity
         if content.startswith("[auto-loaded:") or content.startswith("[File:"):
@@ -256,7 +256,12 @@ def _build_chat_messages(
 
 def _extract_sources(results: list[QueryResult]) -> list[str]:
     seen: set[str] = set()
-    return [r.source for r in results if r.source not in seen and not seen.add(r.source)]  # type: ignore
+    out: list[str] = []
+    for r in results:
+        if r.source not in seen:
+            seen.add(r.source)
+            out.append(r.source)
+    return out
 
 
 # Public aliases for use by other modules
@@ -264,24 +269,6 @@ load_episodic_memory = _load_episodic_memory
 rewrite_query = _rewrite_query_for_retrieval
 build_context_block = _build_context_block
 boost_results = _boost_results
-
-
-def _resolve_config(
-    provider_override: str | None = None,
-    model_override: str | None = None,
-) -> MnemosyneConfig:
-    cfg = get_config()
-    needs_rebuild = False
-    d = cfg.model_dump()
-    if provider_override:
-        d["llm_provider"] = provider_override
-        needs_rebuild = True
-    if model_override:
-        d["llm_model"] = model_override
-        needs_rebuild = True
-    if needs_rebuild:
-        cfg = MnemosyneConfig(**d)
-    return cfg
 
 
 # -- Single-shot -------------------------------------------------------------
@@ -295,7 +282,7 @@ def ask(
     provider_override: str | None = None,
     filter_meta: dict[str, Any] | None = None,
 ) -> BrainResponse:
-    cfg = _resolve_config(provider_override)
+    cfg = resolve_config(provider_override)
     # Adaptive retrieval -- adjust chunk count by query complexity
     effective_n = max(n_results, _estimate_complexity(question))
     search_query = _rewrite_query_for_retrieval(question)
@@ -303,7 +290,8 @@ def ask(
     res = _boost_results(res, question)
     msgs = _build_messages(question, _build_context_block(res), _load_episodic_memory(project_root))
     try:
-        answer: str = get_llm(cfg).invoke(msgs).content  # type: ignore
+        raw_answer = get_llm(cfg).invoke(msgs).content
+        answer: str = raw_answer if isinstance(raw_answer, str) else str(raw_answer)
     except Exception as exc:
         return BrainResponse(answer=f"Error: {exc}", provider=cfg.llm_provider)
     return BrainResponse(answer=answer, sources=_extract_sources(res), provider=cfg.llm_provider)
@@ -323,7 +311,7 @@ def ask_streaming(
     filter_meta: dict[str, Any] | None = None,
 ) -> Generator[str, None, tuple[str, list[str]]]:
     """Yields tokens. Returns (full_answer, sources) on StopIteration."""
-    cfg = _resolve_config(provider_override, model_override)
+    cfg = resolve_config(provider_override, model_override)
 
     # Adaptive retrieval: adjust chunk count by query complexity
     effective_n = max(n_results, _estimate_complexity(question))
@@ -347,7 +335,7 @@ def ask_streaming(
 
     tokens: list[str] = []
     for chunk in get_llm(cfg).stream(msgs):
-        t = chunk.content  # type: ignore
+        t: str = chunk.content if isinstance(chunk.content, str) else str(chunk.content)  # type: ignore[assignment]
         if t:
             tokens.append(t)
             yield t

@@ -312,7 +312,7 @@ def _auto_read_paths(query: str, history: list[BaseMessage]) -> list[str]:
     already_loaded: set[str] = set()
     for m in history:
         if isinstance(m, HumanMessage):
-            c = m.content
+            c = m.content if isinstance(m.content, str) else str(m.content)
             if c.startswith("[auto-loaded:"):
                 end = c.find("]")
                 if end > 0:
@@ -397,7 +397,7 @@ class ChatSession:
         model = self.model_override or p["model"]
         prov = p["provider"]
 
-        total_chars = sum(len(m.content) for m in self.history)
+        total_chars = sum(len(str(m.content)) for m in self.history)
         est_tokens = total_chars // 4
         tok_display = f"{est_tokens:,}" if est_tokens > 0 else "0"
 
@@ -694,7 +694,7 @@ class ChatSession:
 
     def _exit_summary(self) -> None:
         console.print()
-        total_chars = sum(len(m.content) for m in self.history)
+        total_chars = sum(len(str(m.content)) for m in self.history)
         est_tokens = total_chars // 4
         parts: list[str] = [f"{self.turns} turns"]
         parts.append(f"~{est_tokens:,} tokens")
@@ -764,11 +764,13 @@ class ChatSession:
         t.add_column("size", style="dim", justify="right", width=7)
         for i, m in enumerate(self.history):
             role = f"{G}user{R}" if isinstance(m, HumanMessage) else f"{C}assistant{R}"
-            preview = m.content[:60].replace("\n", " ") + ("..." if len(m.content) > 60 else "")
-            t.add_row(str(i), role, preview, str(len(m.content)))
+            preview = (m.content[:60] if isinstance(m.content, str) else str(m.content)[:60]).replace("\n", " ") + (
+                "..." if len(str(m.content)) > 60 else ""
+            )
+            t.add_row(str(i), role, preview, str(len(str(m.content))))
         console.print()
         console.print(t)
-        total_chars = sum(len(m.content) for m in self.history)
+        total_chars = sum(len(str(m.content)) for m in self.history)
         est_tokens = total_chars // 4
         console.print(f"\n  {D}{len(self.history)} messages | ~{est_tokens:,} tokens | {self.turns} turns{R}\n")
 
@@ -840,7 +842,7 @@ class ChatSession:
 
         pinfo = get_provider_display(cfg)
         try:
-            chunks = get_or_create_collection().count()
+            chunks: int | str = get_or_create_collection().count()
         except Exception:
             chunks = "?"
 

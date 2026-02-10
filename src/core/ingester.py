@@ -16,7 +16,12 @@ import pathspec
 from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
 from rich.console import Console
 
+from src.cli.theme import IGNORED
+
 console = Console(highlight=False)
+
+# Maximum file size to ingest (512 KB) -- prevents memory issues with huge files
+MAX_FILE_SIZE = 512 * 1024
 
 # ---------------------------------------------------------------------------
 # Supported file extensions -- grouped by category
@@ -187,41 +192,7 @@ EXACT_FILENAMES: set[str] = {
 }
 
 # ---------------------------------------------------------------------------
-# Directories that are always skipped
-# ---------------------------------------------------------------------------
-
-IGNORED_DIRS: set[str] = {
-    ".git",
-    "__pycache__",
-    "node_modules",
-    "venv",
-    ".venv",
-    ".mnemosyne",
-    ".tox",
-    ".mypy_cache",
-    ".pytest_cache",
-    ".ruff_cache",
-    ".next",
-    ".nuxt",
-    ".output",
-    ".svelte-kit",
-    "dist",
-    "build",
-    ".eggs",
-    "out",
-    "target",  # Rust / Java / Scala
-    "vendor",  # Go / PHP / Ruby
-    ".gradle",
-    ".idea",
-    ".vs",  # IDE dirs
-    "coverage",
-    ".nyc_output",  # Test coverage
-    ".terraform",  # Terraform
-    ".cache",
-    ".parcel-cache",  # Misc caches
-    "bin",
-    "obj",  # .NET
-}
+# Directories -- now using shared IGNORED from theme.py
 
 
 @dataclass
@@ -321,7 +292,7 @@ def _load_gitignore(root: Path) -> pathspec.PathSpec | None:
 def _is_ignored(path: Path, root: Path, gitignore: pathspec.PathSpec | None) -> bool:
     """Check whether a path should be skipped."""
     for part in path.relative_to(root).parts:
-        if part in IGNORED_DIRS:
+        if part in IGNORED:
             return True
 
     if gitignore is not None:
@@ -377,6 +348,13 @@ def scan_directory(
             continue
 
         if not _should_include(filepath, extra_extensions):
+            continue
+
+        # Skip files that are too large
+        try:
+            if filepath.stat().st_size > MAX_FILE_SIZE:
+                continue
+        except OSError:
             continue
 
         try:

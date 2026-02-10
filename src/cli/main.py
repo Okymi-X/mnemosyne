@@ -1,5 +1,5 @@
 """
-Mnemosyne v2.0 -- CLI Entry Point
+Mnemosyne v3.0 -- CLI Entry Point
 Typer interface built with Rich.
 """
 
@@ -284,7 +284,7 @@ def status() -> None:
 
     try:
         collection = get_or_create_collection()
-        doc_count = collection.count()
+        doc_count: int | str = collection.count()
     except Exception:
         doc_count = "N/A"
 

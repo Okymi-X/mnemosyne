@@ -94,9 +94,10 @@ def cmd_git(args: str, provider_override: str | None = None, model_override: str
 
     # Smart commit: auto-generate message from staged diff
     if "commit" in args and "-m" not in args:
-        args = _smart_commit(args, provider_override, model_override)
-        if args is None:
+        result = _smart_commit(args, provider_override, model_override)
+        if result is None:
             return  # aborted
+        args = result
 
     console.print(f"\n  {D}${R} {C}git {args}{R}\n")
     try:
@@ -141,10 +142,10 @@ def _smart_commit(args: str, provider_override: str | None, model_override: str 
         from langchain_core.messages import HumanMessage as HM
         from langchain_core.messages import SystemMessage as SM
 
-        from src.core.brain import _resolve_config
+        from src.core.config import resolve_config
         from src.core.providers import get_llm
 
-        cfg = _resolve_config(provider_override, model_override)
+        cfg = resolve_config(provider_override, model_override)
         llm = get_llm(cfg)
 
         msgs = [
@@ -159,7 +160,8 @@ def _smart_commit(args: str, provider_override: str | None, model_override: str 
             ),
             HM(content=f"Files changed:\n{diff_stat}\n\nDiff:\n{full_diff[:3000]}"),
         ]
-        msg = llm.invoke(msgs).content.strip().strip("\"'")  # type: ignore
+        msg: str = llm.invoke(msgs).content or ""  # type: ignore[assignment]
+        msg = msg.strip().strip("\"'")
         console.print(f"\n  {G}suggested:{R} {C}{msg}{R}")
 
         try:
@@ -169,14 +171,16 @@ def _smart_commit(args: str, provider_override: str | None, model_override: str 
             return None
 
         if ans in ("", "y", "yes", "o", "oui"):
-            return f'commit -m "{msg}"'
+            import shlex
+
+            return f"commit -m {shlex.quote(msg)}"
         elif ans in ("e", "edit"):
             try:
                 custom = input("  message: ").strip()
             except (EOFError, KeyboardInterrupt):
                 console.print(f"  {D}aborted{R}\n")
                 return None
-            return f'commit -m "{custom}"' if custom else None
+            return f"commit -m {shlex.quote(custom)}" if custom else None
         else:
             console.print(f"  {D}aborted{R}\n")
             return None

@@ -15,7 +15,7 @@ from rich.console import Console
 from src.core.config import get_config
 from src.core.ingester import DocumentChunk
 
-console = Console()
+console = Console(highlight=False)
 
 
 @dataclass
@@ -122,9 +122,9 @@ def query(
         return []
 
     items: list[QueryResult] = []
-    documents = results.get("documents", [[]])[0]
-    metadatas = results.get("metadatas", [[]])[0]
-    distances = results.get("distances", [[]])[0]
+    documents: list[str] = (results.get("documents") or [[]])[0]
+    metadatas: list[dict[str, Any]] = (results.get("metadatas") or [[]])[0]  # type: ignore[assignment]
+    distances: list[float] = (results.get("distances") or [[]])[0]
 
     for doc, meta, dist in zip(documents, metadatas, distances):
         items.append(

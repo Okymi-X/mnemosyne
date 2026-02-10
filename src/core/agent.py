@@ -25,7 +25,7 @@ from src.core.brain import (
     _rewrite_query_for_retrieval,
     summarise_history,
 )
-from src.core.config import MnemosyneConfig, get_config
+from src.core.config import resolve_config
 from src.core.providers import get_llm
 from src.core.tools import (
     ToolCall,
@@ -146,20 +146,7 @@ def _build_agent_system_prompt(memory: str = "") -> str:
 # ---------------------------------------------------------------------------
 
 
-def _resolve_config(
-    provider_override: str | None = None,
-    model_override: str | None = None,
-) -> MnemosyneConfig:
-    cfg = get_config()
-    needs_rebuild = False
-    d = cfg.model_dump()
-    if provider_override:
-        d["llm_provider"] = provider_override
-        needs_rebuild = True
-    if model_override:
-        d["llm_model"] = model_override
-        needs_rebuild = True
-    return MnemosyneConfig(**d) if needs_rebuild else cfg
+# Use shared resolve_config from config module
 
 
 # ---------------------------------------------------------------------------
@@ -217,7 +204,7 @@ def run_agent(
     ``on_event`` is called for each significant event so the UI can
     show real-time progress.
     """
-    cfg = _resolve_config(provider_override, model_override)
+    cfg = resolve_config(provider_override, model_override)
     llm = get_llm(cfg)
 
     # -- RAG context -------------------------------------------------------
@@ -261,7 +248,8 @@ def run_agent(
         t0 = time.perf_counter()
         try:
             response = llm.invoke(msgs)
-            response_text: str = response.content  # type: ignore
+            raw_content = response.content
+            response_text: str = raw_content if isinstance(raw_content, str) else str(raw_content)
         except Exception as e:
             emit("error", {"error": str(e)})
             return AgentResponse(

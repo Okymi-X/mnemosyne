@@ -152,7 +152,6 @@ def query_headless(
             text=True,
             timeout=timeout,
             cwd=work_dir,
-            env={**os.environ},
         )
         return GeminiCLIResult(
             output=r.stdout.strip(),

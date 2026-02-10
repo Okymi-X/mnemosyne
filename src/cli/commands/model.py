@@ -179,7 +179,7 @@ def cmd_gemini(
         summary_parts: list[str] = []
         for m in history[-6:]:
             role = "User" if isinstance(m, HumanMessage) else "Assistant"
-            preview = m.content[:150].replace("\n", " ")
+            preview = (m.content[:150] if isinstance(m.content, str) else str(m.content)[:150]).replace("\n", " ")
             summary_parts.append(f"[{role}]: {preview}...")
         history_summary = "\n".join(summary_parts)
 

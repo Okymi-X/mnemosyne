@@ -3,7 +3,18 @@ name = "mnemosyne"
 version = "3.0.0"
 description = "Autonomous agentic coding assistant with infinite context. RAG-powered CLI with tool-calling agent loop, adaptive retrieval, and deep reasoning."
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.12"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
+]
 dependencies = [
     "chromadb>=1.5.0",
     "langchain>=1.2.9",
@@ -22,6 +33,20 @@ dependencies = [
     "typer[all]>=0.21.1",
     "duckduckgo-search>=6.1.0",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.9.0",
+    "mypy>=1.14.0",
+    "pip-audit>=2.7.0",
+    "pre-commit>=4.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Okymi-X/mnemosyne"
+Documentation = "https://github.com/Okymi-X/mnemosyne#readme"
+Repository = "https://github.com/Okymi-X/mnemosyne"
+Issues = "https://github.com/Okymi-X/mnemosyne/issues"
 
 [project.scripts]
 mnemosyne = "src.cli.main:app"

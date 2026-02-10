@@ -74,9 +74,18 @@ def dedup_files(blocks: list[CodeBlock]) -> list[CodeBlock]:
 
 
 def write_file(path: str, content: str, backup: bool = True) -> WriteRecord | None:
-    """Write content to *path*, optionally creating a .bak backup."""
+    """Write content to *path*, optionally creating a .bak backup.
+
+    Validates that the resolved path stays within the current working directory
+    to prevent path-traversal attacks from LLM-generated file paths.
+    """
     try:
-        p = Path(path)
+        p = Path(path).resolve()
+        cwd = Path.cwd().resolve()
+        # Security: prevent writing outside the project directory
+        if not str(p).startswith(str(cwd)):
+            console.print(f"  {FAIL} path traversal blocked: {path}")
+            return None
         p.parent.mkdir(parents=True, exist_ok=True)
         bak_path = ""
         had_bak = False
