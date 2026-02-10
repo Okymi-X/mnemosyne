@@ -253,6 +253,13 @@ def _extract_sources(results: list[QueryResult]) -> list[str]:
     return [r.source for r in results if r.source not in seen and not seen.add(r.source)]  # type: ignore
 
 
+# Public aliases for use by other modules
+load_episodic_memory = _load_episodic_memory
+rewrite_query = _rewrite_query_for_retrieval
+build_context_block = _build_context_block
+boost_results = _boost_results
+
+
 def _resolve_config(
     provider_override: str | None = None,
     model_override: str | None = None,

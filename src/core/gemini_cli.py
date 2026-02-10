@@ -70,7 +70,7 @@ def get_install_instructions() -> str:
 # Context builder
 # ---------------------------------------------------------------------------
 
-def _build_context_prompt(
+def build_context_prompt(
     query: str,
     codebase_context: str = "",
     memory: str = "",
@@ -280,7 +280,7 @@ def query_with_context(
     High-level helper: build a context-enriched prompt and send it to Gemini CLI.
     If stream=True, returns a generator; otherwise returns a GeminiCLIResult.
     """
-    full_prompt = _build_context_prompt(
+    full_prompt = build_context_prompt(
         query,
         codebase_context=codebase_context,
         memory=memory,

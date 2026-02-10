@@ -28,13 +28,19 @@ class QueryResult:
 
 
 # ─────────────────────────────────────────────────────────────────────────
-# Client / Collection helpers
+# Client / Collection helpers  (cached singletons)
 # ─────────────────────────────────────────────────────────────────────────
 
+_client_cache: dict[str, chromadb.ClientAPI] = {}
+
+
 def get_chroma_client() -> chromadb.ClientAPI:
-    """Return a persistent ChromaDB client."""
+    """Return a cached persistent ChromaDB client (one per db path)."""
     config = get_config()
-    return chromadb.PersistentClient(path=config.chroma_db_path)
+    db_path = config.chroma_db_path
+    if db_path not in _client_cache:
+        _client_cache[db_path] = chromadb.PersistentClient(path=db_path)
+    return _client_cache[db_path]
 
 
 def get_or_create_collection(

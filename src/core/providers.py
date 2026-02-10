@@ -11,11 +11,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from rich.console import Console
 
 from src.core.config import MnemosyneConfig, get_config
-
-console = Console(highlight=False)
 
 
 # ---------------------------------------------------------------------------

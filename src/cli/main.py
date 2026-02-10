@@ -1,6 +1,6 @@
 """
 Mnemosyne v2.0 -- CLI Entry Point
-Beautiful, hacker-style terminal interface built with Typer + Rich.
+Typer interface built with Rich.
 """
 
 from __future__ import annotations
@@ -10,11 +10,11 @@ import sys
 from pathlib import Path
 
 import typer
-from rich.console import Console
-from rich.panel import Panel
 from rich.markdown import Markdown
+from rich.panel import Panel
 from rich.table import Table
-from rich import box
+
+from src.cli.theme import console, TABLE_BOX, BRAND, OK, WARN, FAIL
 
 # Force UTF-8 output on Windows to avoid CP1252 encoding errors
 if sys.platform == "win32":
@@ -55,14 +55,6 @@ def _main(
 ) -> None:
     """Mnemosyne -- Local agentic coding assistant with infinite context."""
 
-console = Console(highlight=False)
-
-# -- Styling constants -------------------------------------------------------
-BRAND = "[bold bright_green]Mnemosyne[/bold bright_green]"
-OK    = "[green][+][/green]"
-WARN  = "[yellow][!][/yellow]"
-FAIL  = "[red][-][/red]"
-
 # -- Valid providers for CLI help --------------------------------------------
 PROVIDER_HELP = "LLM provider override (google|anthropic|groq|openrouter|openai|ollama)."
 
@@ -98,10 +90,11 @@ def init(
 
     console.print(
         Panel(
-            f"{OK} {BRAND} initialised at [cyan]{root}[/cyan]\n"
-            f"   Database path: [dim]{mnemosyne_dir / 'chroma'}[/dim]",
-            title="[bright_green]>> Init Complete[/bright_green]",
+            f"{OK} {BRAND} initialised at [bold cyan]{root}[/bold cyan]\n"
+            f"   db: [dim]{mnemosyne_dir / 'chroma'}[/dim]",
+            title="[bright_green]init[/bright_green]",
             border_style="bright_green",
+            padding=(0, 1),
         )
     )
 
@@ -165,10 +158,10 @@ def ingest(
 
     console.print(
         Panel(
-            f"{OK} Ingested [bold green]{written}[/bold green] chunks "
-            f"from [bold]{len(docs)}[/bold] files.",
-            title="[bright_green]>> Ingestion Complete[/bright_green]",
+            f"{OK} [bold green]{written}[/bold green] chunks from [bold]{len(docs)}[/bold] files",
+            title="[bright_green]ingested[/bright_green]",
             border_style="bright_green",
+            padding=(0, 1),
         )
     )
 
@@ -218,7 +211,7 @@ def ask(
     console.print(
         Panel(
             Markdown(result.answer),
-            title="[bright_green]>> Answer[/bright_green]",
+            title="[bright_green]answer[/bright_green]",
             border_style="bright_green",
             padding=(1, 2),
         )
@@ -227,13 +220,14 @@ def ask(
     # -- Source Attribution ------------------------------------------------
     if result.sources:
         table = Table(
-            title="[bright_green]>> Sources Referenced[/bright_green]",
-            box=box.SIMPLE_HEAVY,
-            title_style="bold bright_green",
+            title="[dim]sources[/dim]",
+            box=TABLE_BOX,
+            title_style="",
             header_style="bold cyan",
+            show_edge=False,
         )
         table.add_column("#", style="dim", width=4)
-        table.add_column("File", style="green")
+        table.add_column("file", style="bold cyan")
 
         for idx, src in enumerate(result.sources, 1):
             table.add_row(str(idx), src)
@@ -263,9 +257,10 @@ def forget() -> None:
 
     console.print(
         Panel(
-            f"{OK} Knowledge base has been wiped.",
-            title="[bright_yellow]>> Forget Complete[/bright_yellow]",
+            f"{OK} Knowledge base wiped.",
+            title="[bright_yellow]forget[/bright_yellow]",
             border_style="bright_yellow",
+            padding=(0, 1),
         )
     )
 
@@ -291,20 +286,21 @@ def status() -> None:
         doc_count = "N/A"
 
     table = Table(
-        title=f">> {BRAND} Status",
-        box=box.ROUNDED,
-        title_style="bold bright_green",
+        title=f"{BRAND} [dim]status[/dim]",
+        box=TABLE_BOX,
+        title_style="",
         header_style="bold cyan",
+        show_edge=False,
     )
-    table.add_column("Parameter", style="dim")
-    table.add_column("Value", style="green")
+    table.add_column("parameter", style="dim")
+    table.add_column("value", style="bold cyan")
 
     table.add_row("LLM Provider", f"{pinfo['label']} [dim]({pinfo['provider']})[/dim]")
     table.add_row("Model", pinfo["model"])
     table.add_row("API Key", pinfo["key_status"])
-    table.add_row("ChromaDB Path", config.chroma_db_path)
+    table.add_row("ChromaDB", config.chroma_db_path)
     table.add_row("Collection", config.collection_name)
-    table.add_row("Documents Indexed", str(doc_count))
+    table.add_row("Indexed", str(doc_count))
 
     console.print(table)
 
@@ -381,7 +377,7 @@ def gemini(
         get_install_instructions,
         query_headless,
         launch_interactive,
-        _build_context_prompt,
+        build_context_prompt,
     )
 
     if not is_gemini_cli_installed():
@@ -408,18 +404,18 @@ def gemini(
     with console.status("[bright_green]Retrieving context...[/bright_green]"):
         try:
             from src.core.vector_store import query as vq
-            from src.core.brain import _load_episodic_memory, _rewrite_query_for_retrieval
+            from src.core.brain import load_episodic_memory, rewrite_query
 
-            search_q = _rewrite_query_for_retrieval(query)
+            search_q = rewrite_query(query)
             results = vq(search_q, n_results=n_results)
             if results:
                 parts = [f"### `{r.source}`\n```\n{r.content}\n```" for r in results]
                 codebase_ctx = "\n\n".join(parts)
-            memory = _load_episodic_memory()
+            memory = load_episodic_memory()
         except Exception as exc:
             console.print(f"{WARN} Context retrieval failed: {exc}")
 
-    full_prompt = _build_context_prompt(query, codebase_context=codebase_ctx, memory=memory)
+    full_prompt = build_context_prompt(query, codebase_context=codebase_ctx, memory=memory)
 
     console.print(f"{OK} Sending to Gemini CLI...\n")
 
@@ -432,7 +428,7 @@ def gemini(
     console.print(
         Panel(
             Markdown(result.output),
-            title="[magenta]>> Gemini CLI[/magenta]",
+            title="[magenta]gemini[/magenta]",
             border_style="magenta",
             padding=(1, 2),
         )
