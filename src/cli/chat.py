@@ -1,6 +1,7 @@
 """
-Mnemosyne v0.6 -- Intelligent Coding Agent
-Polished terminal coding agent with Smart Editing, Pre-emptive Ingestion, and Robust Error Recovery.
+Mnemosyne v2.0 -- Intelligent Coding Agent
+Terminal coding agent with Adaptive Context, Smart Editing, Deep Reasoning,
+Git Intelligence, and Robust Error Recovery.
 """
 
 from __future__ import annotations
@@ -124,6 +125,9 @@ def _make_completer() -> NestedCompleter:
         "/ingest": dir_comp,
         "/save": path_comp,
         "/web": None,
+        "/news": None,
+        "/gemini": None,
+        "/gemini-interactive": None,
         "/git": None,
         "/lint": path_comp,
         "/filter": WordCompleter([".py", ".js", ".ts", ".md", ".html", ".css", ".rs", ".go"]),
@@ -136,57 +140,122 @@ def _make_completer() -> NestedCompleter:
 
 def _welcome(provider: str, model: str, chunks: int | str) -> None:
     console.print()
-    console.print(Rule(style="bright_green"))
-    console.print(
-        f"  {G}mnemosyne{R}  {D}v1.1 (Smart Shell){R}\n"
-        f"\n"
-        f"  {D}provider{R}  {C}{provider}{R}\n"
-        f"  {D}model{R}     {C}{model}{R}\n"
-        f"  {D}indexed{R}   {C}{chunks}{R} chunks\n"
-        f"  {D}cwd{R}       {C}{Path.cwd()}{R}\n"
+    
+    # ASCII art logo
+    logo = (
+        "  [bold bright_green]┏┳┓┏┓┏┓┏┳┓┏┓┏━┓┓ ┏┏┓┏┓[/]\n"
+        "  [bold bright_green]┃┃┃┃┃┣ ┃┃┃┃┃┗━┓┗┳┛┃┃┣ [/]\n"
+        "  [bold bright_green]┛ ┗┛┗┗┛┛ ┗┗┛┗━┛ ┻ ┛┗┗┛[/]"
     )
-    console.print(Rule(style="bright_green"))
-    console.print(f"  {D}Type / for commands  |  Ctrl-C to exit{R}")
+    console.print(logo)
     console.print()
+    
+    # Detect project type
+    project_type = _detect_project()
+    
+    # Check Gemini CLI availability
+    from src.core.gemini_cli import is_gemini_cli_installed, get_gemini_cli_version
+    gemini_status = ""
+    if is_gemini_cli_installed():
+        ver = get_gemini_cli_version() or "installed"
+        gemini_status = f"\n  {D}gemini-cli{R}  {C}{ver}{R}"
+    
+    console.print(Panel(
+        f"  {D}provider{R}   {C}{provider}{R}\n"
+        f"  {D}model{R}      {C}{model}{R}\n"
+        f"  {D}indexed{R}    {C}{chunks}{R} chunks\n"
+        f"  {D}project{R}    {C}{project_type}{R}\n"
+        f"  {D}cwd{R}        {C}{Path.cwd()}{R}"
+        f"{gemini_status}",
+        title=f"{G}v2.0{R}",
+        subtitle=f"{D}Type / for commands  |  Ctrl-C to exit{R}",
+        border_style="bright_green",
+        padding=(0, 2),
+    ))
+    console.print()
+
+
+def _detect_project() -> str:
+    """Detect the type of project in the current directory."""
+    cwd = Path.cwd()
+    indicators: dict[str, str] = {
+        "package.json":     "Node.js",
+        "pyproject.toml":   "Python",
+        "Cargo.toml":       "Rust",
+        "go.mod":           "Go",
+        "pom.xml":          "Java (Maven)",
+        "build.gradle":     "Java (Gradle)",
+        "Gemfile":          "Ruby",
+        "composer.json":    "PHP",
+        "tsconfig.json":    "TypeScript",
+        "next.config.js":   "Next.js",
+        "next.config.mjs":  "Next.js",
+        "next.config.ts":   "Next.js",
+        "vite.config.ts":   "Vite",
+        "vite.config.js":   "Vite",
+        "svelte.config.js": "SvelteKit",
+        "astro.config.mjs": "Astro",
+        "nuxt.config.ts":   "Nuxt",
+        "Dockerfile":       "Docker",
+        "flake.nix":        "Nix",
+        "CMakeLists.txt":   "C/C++ (CMake)",
+        "Makefile":         "Make",
+    }
+    detected: list[str] = []
+    for filename, label in indicators.items():
+        if (cwd / filename).exists():
+            detected.append(label)
+    return " + ".join(detected[:3]) if detected else "Unknown"
 
 
 def _help() -> None:
     t = Table(
-        box=box.SIMPLE, show_header=True, header_style="bold bright_green",
-        padding=(0, 2), title=f"{G}mnemosyne{R} {D}commands{R}", title_style="",
+        box=box.ROUNDED, show_header=True, header_style="bold bright_green",
+        padding=(0, 2), title=f"{D}mnemosyne v2.0 commands{R}", title_style="",
     )
-    t.add_column("command", style="green", min_width=16)
+    t.add_column("command", style="green", min_width=18)
     t.add_column("description", style="dim")
 
     cmds = [
-        ("", "[bold]conversation[/bold]"),
+        ("", "[bold bright_green]-- conversation --[/]"),
         ("/clear", "reset history"),
-        ("/compact", "trim to last 2 turns"),
+        ("/compact", "smart-trim old turns"),
         ("/save [path]", "export chat to markdown"),
         ("/status", "show config and stats"),
-        ("", "[bold]model & retrieval[/bold]"),
+        ("/context", "view conversation context"),
+        ("", ""),
+        ("", "[bold bright_green]-- model & retrieval --[/]"),
         ("/model <name>", "switch model mid-session"),
         ("/provider <name>", "switch provider mid-session"),
-        ("/filter <exts>", "filter context (e.g. .py)"),
+        ("/filter <exts>", "filter context (e.g. .py,.ts)"),
         ("/web <query>", "search the web"),
-        ("", "[bold]files[/bold]"),
+        ("", ""),
+        ("", "[bold bright_green]-- files --[/]"),
         ("/read <path>", "load file into context"),
         ("/write <path>", "write last code block"),
         ("/writeall", "write all detected files"),
         ("/undo", "revert last written files"),
-        ("/readonly", "toggle read-only mode"),
+        ("/readonly", "toggle read-only safety"),
         ("/create <path>", "create file or directory"),
+        ("", ""),
+        ("", "[bold bright_green]-- search --[/]"),
         ("/ls [path]", "directory tree listing"),
         ("/find <pattern>", "find files by name"),
         ("/grep <pattern>", "search file contents"),
         ("/diff [path]", "git diff"),
         ("/copy", "copy last code to clipboard"),
-        ("", "[bold]system[/bold]"),
+        ("", ""),
+        ("", "[bold bright_green]-- system --[/]"),
         ("/run <cmd>", "execute shell command"),
-        ("/git <args>", "run git commands"),
+        ("/git <args>", "git commands (auto-commit msg)"),
         ("/lint [path]", "lint code (ruff/flake8)"),
         ("/ingest [path]", "re-index codebase"),
         ("/cd <path>", "change directory"),
+        ("", ""),
+        ("", "[bold bright_green]-- gemini cli --[/]"),
+        ("/gemini <query>", "delegate to Gemini CLI with RAG context"),
+        ("/gemini-interactive", "launch full Gemini CLI session"),
+        ("", ""),
         ("/quit", "exit"),
     ]
     for c, d in cmds:
@@ -194,7 +263,7 @@ def _help() -> None:
 
     console.print()
     console.print(t)
-    console.print(f"\n  {D}tip: wrap multi-line input in triple quotes (\"\"\"){R}\n")
+    console.print(f"\n  {D}tip: type shell commands directly (ls, git, python...)  |  triple-quotes for multi-line{R}\n")
 
 
 # ---------------------------------------------------------------------------
@@ -298,9 +367,24 @@ def _view_diff(path: str, new_content: str) -> None:
 # ---------------------------------------------------------------------------
 
 def _auto_read_paths(query: str, history: list[BaseMessage]) -> list[str]:
+    # Collect files already loaded in history to avoid duplicates
+    already_loaded: set[str] = set()
+    for m in history:
+        if isinstance(m, HumanMessage) and m.content.startswith("[auto-loaded:"):
+            # Extract path from "[auto-loaded: path]" header
+            end = m.content.find("]")
+            if end > 0:
+                already_loaded.add(m.content[14:end].strip())
+        elif isinstance(m, HumanMessage) and m.content.startswith("[File:"):
+            end = m.content.find("]")
+            if end > 0:
+                already_loaded.add(m.content[7:end].strip())
+
     found = _PATH_RE.findall(query)
     injected: list[str] = []
     for fp in found:
+        if fp in already_loaded:
+            continue
         p = Path(fp)
         if p.is_file() and p.stat().st_size < 200_000:
             try:
@@ -361,7 +445,7 @@ class ChatSession:
             pass
 
     def _get_toolbar(self) -> HTML:
-        """Dynamic bottom toolbar."""
+        """Dynamic bottom toolbar with rich session info."""
         from src.core.providers import get_provider_display
         from src.core.config import get_config
         
@@ -375,20 +459,28 @@ class ChatSession:
         model = self._model_override or p['model']
         prov = p['provider']
         
+        # Estimate token usage
+        total_chars = sum(len(m.content) for m in self.history)
+        est_tokens = total_chars // 4
+        tok_display = f"{est_tokens:,}" if est_tokens > 0 else "0"
+        
         parts = [
-            f" <b>{prov}</b> ",
-            f" {model} ",
-            f" <b>ctx:</b> {self.n_results} ",
+            f" <b>{prov}</b>/{model} ",
+            f" turns: {self.turns} ",
+            f" ~{tok_display} tok ",
         ]
         
         if self.filter_ext:
             f = ",".join(sorted(self.filter_ext))
-            parts.append(f" <b>filter:</b> [{f}] ")
+            parts.append(f" filter: [{f}] ")
             
         if self.readonly:
-            parts.append(" <style bg='red' fg='white'> READONLY </style> ")
+            parts.append(" <style bg='red' fg='white'> RO </style> ")
             
-        return HTML(" | ".join(parts))
+        if self._files_written:
+            parts.append(f" {self._files_written} files out ")
+            
+        return HTML(" │ ".join(parts))
 
     # -- Core: stream + respond ---------------------------------------------
 
@@ -408,7 +500,8 @@ class ChatSession:
         if self.filter_ext:
             fmeta = {"extension": {"$in": list(self.filter_ext)}}
 
-        sys.stdout.write(f"  \033[2mthinking...\033[0m\r")
+        # Thinking indicator
+        sys.stdout.write("  \033[2m> thinking...\033[0m\r")
         sys.stdout.flush()
 
         tokens: list[str] = []
@@ -434,11 +527,12 @@ class ChatSession:
                 if "<thinking>" in tok:
                     in_thinking = True
                     tok = tok.replace("<thinking>", "")
-                    console.print(f"  {M} reasoning...{R}")
+                    console.print(f"\n  {M}┌─ reasoning ─────────────────────────{R}")
                 
                 if "</thinking>" in tok:
                     in_thinking = False
                     tok = tok.replace("</thinking>", "")
+                    console.print(f"\n  {M}└─────────────────────────────────────{R}\n")
 
                 tokens.append(tok)
                 
@@ -473,8 +567,16 @@ class ChatSession:
                 pass
 
         tps = len(tokens) / elapsed if elapsed > 0 else 0
+        
+        # Speed indicator
+        if tps > 50:
+            speed_tag = "fast"
+        elif tps > 20:
+            speed_tag = "ok"
+        else:
+            speed_tag = "slow"
         console.print(
-            f"\n  {D}{len(tokens)} tokens  |  {elapsed:.1f}s  |  {tps:.0f} tok/s{R}"
+            f"\n  {D}{len(tokens)} tokens  |  {elapsed:.1f}s  |  {tps:.0f} tok/s ({speed_tag}){R}"
         )
         if sources:
             console.print(f"  {D}sources: {', '.join(sources[:6])}{R}")
@@ -583,7 +685,10 @@ class ChatSession:
             "/cd":        lambda: self._cmd_cd(a),
             "/save":      lambda: self._cmd_save(a),
             "/web":       lambda: self._cmd_web(a),
+            "/news":      lambda: self._cmd_news(a),
             "/git":       lambda: self._cmd_git(a),
+            "/gemini":    lambda: self._cmd_gemini(a),
+            "/gemini-interactive": lambda: self._cmd_gemini_interactive(),
             "/lint":      lambda: self._cmd_lint(a),
             "/copy":      lambda: self._cmd_copy(),
         }
@@ -602,12 +707,17 @@ class ChatSession:
 
     def _exit_summary(self) -> None:
         console.print()
-        console.print(Rule(style="dim"))
+        console.print(Rule(style="bright_green"))
+        
+        total_chars = sum(len(m.content) for m in self.history)
+        est_tokens = total_chars // 4
+        
         parts: list[str] = [f"{self.turns} turns"]
-        parts.append(f"{len(self.history)} messages")
+        parts.append(f"~{est_tokens:,} tokens")
         if self._files_written:
             parts.append(f"{self._files_written} files written")
-        console.print(f"  {D}session ended  --  {' | '.join(parts)}{R}")
+        console.print(f"  {G}session complete{R}  {D}--  {' | '.join(parts)}{R}")
+        console.print(Rule(style="bright_green"))
         console.print()
 
     # -- Session commands ----------------------------------------------------
@@ -619,9 +729,11 @@ class ChatSession:
     def _compact(self) -> None:
         if len(self.history) < 4:
             console.print(f"  {WARN} not enough history\n"); return
-        n = len(self.history) - 4
-        self.history = self.history[-4:]
-        console.print(f"  {OK} removed {n} messages\n")
+        from src.core.brain import summarise_history
+        old_len = len(self.history)
+        self.history = summarise_history(self.history, keep_last=4)
+        removed = old_len - len(self.history)
+        console.print(f"  {OK} compacted {removed} messages -> {len(self.history)} remaining\n")
 
     def _context(self) -> None:
         t = Table(
@@ -664,6 +776,15 @@ class ChatSession:
         t.add_row("readonly", str(self.readonly))
         t.add_row("filters", str(list(self.filter_ext)) if self.filter_ext else "None")
         t.add_row("cwd", str(Path.cwd()))
+        
+        # Gemini CLI status
+        from src.core.gemini_cli import is_gemini_cli_installed, get_gemini_cli_version
+        if is_gemini_cli_installed():
+            ver = get_gemini_cli_version() or "yes"
+            t.add_row("gemini-cli", f"[green]{ver}[/green]")
+        else:
+            t.add_row("gemini-cli", "[dim]not installed[/dim]")
+        
         console.print(); console.print(t)
 
     def _set_model(self, model: str) -> None:
@@ -693,11 +814,11 @@ class ChatSession:
             console.print(f"  {OK} filters cleared\n")
             return
         parts = {e.strip() if e.strip().startswith(".") else f".{e.strip()}" for e in exts.split(",")}
-        valid = {k for k in _EXT_MAP.keys()}
-        clean = {e for e in parts if e in valid}
+        # Accept any extension that looks valid (dot + alphanumeric)
+        clean = {e for e in parts if len(e) >= 2 and e.startswith(".")}
         if clean:
             self.filter_ext = clean
-            console.print(f"  {OK} filter set: {C}{', '.join(clean)}{R}\n")
+            console.print(f"  {OK} filter set: {C}{', '.join(sorted(clean))}{R}\n")
         else:
             self.filter_ext = None
             console.print(f"  {WARN} no valid extensions found (try: .py, .ts, .md)\n")
@@ -878,30 +999,202 @@ class ChatSession:
         self.history.append(HumanMessage(content=f"[Web Search: {query}]\n\n{res}"))
         console.print(f"  {OK} search results added to context\n")
 
+    def _cmd_news(self, query: str) -> None:
+        if not query: console.print(f"  {WARN} usage: /news <query>\n"); return
+        from src.core.web import search_web_news
+        console.print(f"  {D}searching news for '{query}'...{R}")
+        res = search_web_news(query)
+        self.history.append(HumanMessage(content=f"[News Search: {query}]\n\n{res}"))
+        console.print(f"  {OK} news results added to context\n")
+
+    # -- Gemini CLI integration ----------------------------------------------
+
+    def _cmd_gemini(self, query: str) -> None:
+        """Delegate a query to Gemini CLI with full Mnemosyne RAG context."""
+        if not query:
+            console.print(f"  {WARN} usage: /gemini <query>\n")
+            console.print(f"  {D}  /gemini explain the auth flow{R}")
+            console.print(f"  {D}  /gemini-interactive  (full session){R}\n")
+            return
+
+        from src.core.gemini_cli import (
+            is_gemini_cli_installed, get_install_instructions,
+            query_streaming, _build_context_prompt,
+        )
+
+        if not is_gemini_cli_installed():
+            console.print(f"  {FAIL} Gemini CLI not found on PATH\n")
+            console.print(f"  {D}{get_install_instructions()}{R}\n")
+            return
+
+        # Build context from Mnemosyne's RAG
+        console.print(f"  {M}preparing context for Gemini CLI...{R}")
+
+        codebase_ctx = ""
+        memory = ""
+        history_summary = ""
+
+        try:
+            from src.core.vector_store import query as vq
+            from src.core.brain import _load_episodic_memory, _rewrite_query_for_retrieval
+
+            fmeta: dict[str, Any] | None = None
+            if self.filter_ext:
+                fmeta = {"extension": {"$in": list(self.filter_ext)}}
+
+            search_q = _rewrite_query_for_retrieval(query)
+            results = vq(search_q, n_results=10, filter_meta=fmeta)
+            if results:
+                parts = [f"### `{r.source}`\n```\n{r.content}\n```" for r in results[:8]]
+                codebase_ctx = "\n\n".join(parts)
+
+            memory = _load_episodic_memory()
+        except Exception:
+            pass
+
+        # Summarise recent conversation for Gemini CLI
+        if self.history:
+            summary_parts: list[str] = []
+            for m in self.history[-6:]:
+                role = "User" if isinstance(m, HumanMessage) else "Assistant"
+                preview = m.content[:150].replace("\n", " ")
+                summary_parts.append(f"[{role}]: {preview}...")
+            history_summary = "\n".join(summary_parts)
+
+        full_prompt = _build_context_prompt(
+            query,
+            codebase_context=codebase_ctx,
+            memory=memory,
+            history_summary=history_summary,
+        )
+
+        console.print(Rule(f"{M}gemini cli{R}", style="magenta"))
+        console.print()
+
+        # Stream from Gemini CLI
+        tokens: list[str] = []
+        t0 = time.perf_counter()
+
+        try:
+            gen = query_streaming(full_prompt, cwd=Path.cwd())
+            for chunk in gen:
+                tokens.append(chunk)
+                sys.stdout.write(chunk)
+                sys.stdout.flush()
+        except Exception as exc:
+            console.print(f"\n  {FAIL} Gemini CLI error: {exc}\n")
+            return
+
+        elapsed = time.perf_counter() - t0
+        full_output = "".join(tokens)
+
+        sys.stdout.write("\n")
+        console.print()
+        console.print(Rule(style="magenta"))
+        console.print(f"  {D}gemini-cli  |  {elapsed:.1f}s  |  {len(full_output)} chars{R}")
+        console.print()
+
+        # Add Gemini CLI's response to Mnemosyne's conversation
+        self.history.append(HumanMessage(content=f"[Delegated to Gemini CLI]: {query}"))
+        self.history.append(AIMessage(content=f"[Gemini CLI response]:\n{full_output}"))
+        self.last = full_output
+
+        # Detect files in Gemini CLI output
+        files = _dedup_files(_extract(full_output))
+        if files and not self.readonly:
+            ft = Table(box=box.SIMPLE, show_header=False, padding=(0, 1))
+            ft.add_column("icon", style="bold bright_green", width=3)
+            ft.add_column("path", style="cyan")
+            for f in files:
+                exists = Path(f.path).exists()
+                icon = f"{Y}>{R}" if exists else f"{G}+{R}"
+                ft.add_row(icon, f.path)
+            console.print(ft)
+            self._confirm(files)
+
+    def _cmd_gemini_interactive(self) -> None:
+        """Launch full interactive Gemini CLI session."""
+        from src.core.gemini_cli import is_gemini_cli_installed, get_install_instructions, launch_interactive
+
+        if not is_gemini_cli_installed():
+            console.print(f"  {FAIL} Gemini CLI not found on PATH\n")
+            console.print(f"  {D}{get_install_instructions()}{R}\n")
+            return
+
+        console.print(f"\n  {M}launching Gemini CLI interactive session...{R}")
+        console.print(f"  {D}type 'exit' or Ctrl-C in Gemini CLI to return to Mnemosyne{R}\n")
+
+        exit_code = launch_interactive(cwd=Path.cwd())
+
+        console.print(f"\n  {OK} returned to Mnemosyne {D}(gemini-cli exit: {exit_code}){R}\n")
+
     def _cmd_git(self, args: str) -> None:
         if not args: console.print(f"  {WARN} usage: /git <args>\n"); return
         
-        # Auto-commit feature
+        # Smart commit: auto-generate commit message from staged diff
         if "commit" in args and "-m" not in args:
-             console.print(f"  {M} generating commit message...{R}")
-             try:
-                 diff = subprocess.check_output(["git", "diff", "--cached"], text=True)
-                 if not diff:
-                     console.print(f"  {WARN} no staged changes to commit\n"); return
-                 
-                 # Simple heuristic generation for v1.0
-                 # In a real agent, we'd call the LLM here.
-                 # For now, let's ask the USER to provide it or just run it interactively?
-                 # Actually, let's try to grab a quick summary if we can, 
-                 # but since we can't easily query the LLM synchronously without refactoring _ask needed
-                 # Let's just warn for now, or just run git which will open editor.
-                 pass 
-             except Exception:
-                 pass
+            console.print(f"  {M}generating commit message...{R}")
+            try:
+                diff = subprocess.check_output(
+                    ["git", "diff", "--cached", "--stat"], text=True, cwd=Path.cwd()
+                ).strip()
+                if not diff:
+                    console.print(f"  {WARN} no staged changes. Stage with: git add <files>\n")
+                    return
+                
+                # Get the actual diff content for analysis
+                full_diff = subprocess.check_output(
+                    ["git", "diff", "--cached"], text=True, cwd=Path.cwd()
+                ).strip()
+                
+                # Use LLM to generate a commit message
+                from src.core.brain import _resolve_config
+                from src.core.providers import get_llm
+                from langchain_core.messages import SystemMessage as SM, HumanMessage as HM
+                
+                cfg = _resolve_config(self.provider_override, self._model_override)
+                llm = get_llm(cfg)
+                
+                commit_prompt = [
+                    SM(content=(
+                        "You are a git commit message generator. "
+                        "Write a single conventional commit message for the given diff. "
+                        "Format: type(scope): description\n"
+                        "Types: feat, fix, refactor, docs, style, test, chore, perf\n"
+                        "Keep it under 72 chars. No quotes. Just the message. Nothing else."
+                    )),
+                    HM(content=f"Files changed:\n{diff}\n\nDiff:\n{full_diff[:3000]}"),
+                ]
+                
+                msg = llm.invoke(commit_prompt).content.strip().strip('"\'')  # type: ignore
+                console.print(f"\n  {G}suggested:{R} {C}{msg}{R}")
+                
+                try:
+                    ans = input(f"\n  use this message? [Y/n/edit] ").strip().lower()
+                except (EOFError, KeyboardInterrupt):
+                    console.print(f"  {D}aborted{R}\n"); return
+                
+                if ans in ("", "y", "yes", "o", "oui"):
+                    args = f'commit -m "{msg}"'
+                elif ans in ("e", "edit"):
+                    try:
+                        custom = input(f"  message: ").strip()
+                    except (EOFError, KeyboardInterrupt):
+                        console.print(f"  {D}aborted{R}\n"); return
+                    if custom:
+                        args = f'commit -m "{custom}"'
+                    else:
+                        console.print(f"  {D}aborted{R}\n"); return
+                else:
+                    console.print(f"  {D}aborted{R}\n"); return
+                    
+            except subprocess.CalledProcessError:
+                pass  # fall through to normal git
+            except Exception as exc:
+                console.print(f"  {WARN} auto-message failed ({exc}), opening editor...")
         
         console.print(f"\n  {D}${R} {C}git {args}{R}\n")
         try:
-            # We use shell=True to allow complex args, but git is safe-ish
             r = subprocess.run(f"git {args}", shell=True, capture_output=True, text=True, cwd=Path.cwd())
             if r.stdout: console.print(r.stdout.rstrip())
             if r.stderr: console.print(f"[yellow]{r.stderr.rstrip()}[/yellow]")
@@ -948,14 +1241,32 @@ class ChatSession:
                 err = r.stderr.rstrip()
                 console.print(f"[yellow]{err}[/yellow]")
                 
-                # Robust Error Recovery
-                if "command not found" in err or "is not recognized" in err:
-                    console.print(f"  {WARN} suggest: typo or missing package?")
-                elif "pip" in cmd and "install" in cmd:
-                    console.print(f"  {WARN} ensure virtualenv is active")
+                # Enhanced Error Recovery with smart suggestions
+                err_lower = err.lower()
+                if "command not found" in err_lower or "is not recognized" in err_lower:
+                    # Try to suggest the correct command
+                    first = cmd.split()[0]
+                    suggestions: dict[str, str] = {
+                        "python3": "try: python", "py": "try: python",
+                        "pip3": "try: pip", "node": "install Node.js",
+                        "npm": "install Node.js", "cargo": "install Rust",
+                        "go": "install Go", "docker": "install Docker",
+                    }
+                    hint = suggestions.get(first, "check spelling or install the package")
+                    console.print(f"  {WARN} command not found: {first} -> {hint}")
+                elif "permission denied" in err_lower:
+                    console.print(f"  {WARN} try with elevated permissions (sudo/admin)")
+                elif "no such file" in err_lower:
+                    console.print(f"  {WARN} file/directory not found -- check the path")
+                elif "modulenotfounderror" in err_lower or "no module named" in err_lower:
+                    mod = re.search(r"no module named ['\"]?(\w+)", err_lower)
+                    pkg = mod.group(1) if mod else "package"
+                    console.print(f"  {WARN} missing module -> pip install {pkg}")
+                elif "enoent" in err_lower or "errno 2" in err_lower:
+                    console.print(f"  {WARN} file not found -- verify the path exists")
 
             if r.returncode != 0: console.print(f"\n  {D}exit {r.returncode}{R}")
-        except subprocess.TimeoutExpired: console.print(f"  {FAIL} timeout (60s)")
+        except subprocess.TimeoutExpired: console.print(f"  {FAIL} timeout (60s) -- try running in background")
         except Exception as exc: console.print(f"  {FAIL} {exc}")
         console.print()
 

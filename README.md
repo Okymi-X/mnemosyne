@@ -4,16 +4,16 @@
     <strong>Local, agentic coding assistant with infinite context.</strong>
   </p>
   <p align="center">
-    RAG-powered CLI that indexes your codebase, remembers everything, and acts on it.
+    RAG-powered CLI that indexes your codebase, remembers everything, and acts on it -- with adaptive retrieval, deep reasoning, and smart context.
   </p>
 </p>
 
 <p align="center">
-  <a href="#quick-start">Quick Start</a> •
-  <a href="#features">Features</a> •
-  <a href="#providers">Providers</a> •
-  <a href="#commands">Commands</a> •
-  <a href="#architecture">Architecture</a> •
+  <a href="#quick-start">Quick Start</a> |
+  <a href="#features">Features</a> |
+  <a href="#providers">Providers</a> |
+  <a href="#commands">Commands</a> |
+  <a href="#architecture">Architecture</a> |
   <a href="#license">License</a>
 </p>
 
@@ -21,21 +21,22 @@
 
 ## What is Mnemosyne?
 
-Mnemosyne is a **local-first coding assistant** that runs entirely in your terminal. It ingests your codebase into a local vector database (ChromaDB), then uses RAG to give any LLM deep, accurate knowledge about your project — no cloud uploads, no token limits.
+Mnemosyne is a **local-first coding assistant** that runs entirely in your terminal. It ingests your codebase into a local vector database (ChromaDB), then uses RAG to give any LLM deep, accurate knowledge about your project -- no cloud uploads, no token limits.
 
-It includes an **interactive agentic REPL** (v0.4) with **Deep Reasoning** capabilities, **Adaptive Context Filtering**, and a full suite of file operations. It can create files, run commands, search your codebase, and scaffold entire projects — all from a single terminal session.
+It includes an **interactive agentic REPL** (v2.0) with **Deep Reasoning**, **Adaptive Context Retrieval**, **Query Rewriting**, **Smart Conversation Compaction**, **Git Intelligence** and a full suite of file operations. It can create files, run commands, search your codebase, generate commit messages, and scaffold entire projects -- all from a single terminal session.
 
 ```
-╭──────────────────────────────────────────────╮
-│   mnemosyne  v0.3                            │
-│                                              │
-│   provider  Groq                             │
-│   model     llama-3.3-70b-versatile          │
-│   indexed   46 chunks                        │
-│   cwd       ~/myproject                      │
-│                                              │
-│   /help for commands  |  Ctrl-C to exit      │
-╰──────────────────────────────────────────────╯
+  ┏┳┓┏┓┏┓┏┳┓┏┓┏━┓┓ ┏┏┓┏┓
+  ┃┃┃┃┃┣ ┃┃┃┃┃┗━┓┗┳┛┃┃┣
+  ┛ ┗┛┗┗┛┛ ┗┗┛┗━┛ ┻ ┛┗┗┛
+
+╭─ v2.0 ───────────────────────────────────────╮
+│   provider   Google Gemini                   │
+│   model      gemini-2.0-flash                │
+│   indexed    46 chunks                       │
+│   project    Python                          │
+│   cwd        ~/myproject                     │
+╰──────── Type / for commands │ Ctrl-C to exit ╯
 
 myproject > explain how auth works in this codebase
 ```
@@ -82,6 +83,12 @@ mnemosyne chat
 
 # Or single-shot query
 mnemosyne ask "How does the auth module work?"
+
+# Delegate to Gemini CLI with RAG context
+mnemosyne gemini "explain the architecture"
+
+# Launch Gemini CLI interactive with context
+mnemosyne gemini --interactive
 ```
 
 ---
@@ -112,21 +119,24 @@ mnemosyne chat -p groq
 
 The `chat` command launches a full terminal coding session:
 
-- **Smart Shell** — (v1.1) run commands directly (`ls`, `curl`, `git`, etc.) without `/run`
-- **Web Search** — (v1.0) `/web <query>` access to live internet data
-- **Git Commander** — (v1.0) `/git` integration with auto-commit suggestions
-- **Code Linter** — (v1.0) `/lint` checks code quality (ruff, flake8, etc.)
-- **Smart Diff** — (v0.6) view changes before applying (`d` or `diff`)
-- **Auto-Ingestion** — (v0.6) detects new projects and offers to index
-- **Robust Error Recovery** — (v0.6) suggests fixes for failed commands
-- **Autocompletion** — (v0.5) smart suggestions for commands and files
-- **Bottom Toolbar** — (v0.5) persistent status bar
-- **Streaming output** — tokens appear in real-time
-- **Conversation memory** — multi-turn follow-ups
-- **Auto file creation** — detects files in responses, asks to write them
-- **Shell execution** — run commands without leaving chat
-- **Codebase search** — grep, find, read files from chat
-- **Multi-line input** — wrap in triple quotes (`"""`)
+- **Adaptive Context** -- auto-adjusts retrieval depth based on query complexity
+- **Query Rewriting** -- expands queries for better vector search recall
+- **Smart Compaction** -- summarises old turns instead of dropping them
+- **Git Intelligence** -- LLM-generated conventional commit messages
+- **Project Detection** -- auto-detects framework (Next.js, Python, Rust...)
+- **Priority Scoring** -- high-priority files (main, config, API) ranked first
+- **Smart Shell** -- run commands directly (`ls`, `curl`, `git`, etc.) without `/run`
+- **Web Search** -- `/web <query>` access to live internet data
+- **Smart Error Recovery** -- context-aware suggestions for failed commands
+- **Smart Diff** -- view changes before applying (`d` or `diff`)
+- **Auto-Ingestion** -- detects new projects and offers to index
+- **Autocompletion** -- smart suggestions for commands and files
+- **Bottom Toolbar** -- persistent status bar with token count
+- **Streaming output** -- tokens appear in real-time with speed indicator
+- **Conversation memory** -- multi-turn follow-ups with auto-compaction
+- **Auto file creation** -- detects files in responses, asks to write them
+- **Codebase search** -- grep, find, read files from chat
+- **Multi-line input** -- wrap in triple quotes (`"""`)
 
 ```
 myproject > create a flask API with user auth
@@ -161,10 +171,44 @@ myproject > create a flask API with user auth
 | `/diff [path]` | Show git diff |
 | `/run <cmd>` | Execute shell command |
 | `/cd <path>` | Change directory |
+| `/gemini <query>` | Delegate to Gemini CLI with RAG context |
+| `/gemini-interactive` | Launch full Gemini CLI session |
+| `/news <query>` | Search recent news |
 | `/clear` | Reset conversation |
 | `/compact` | Trim history to save context |
 | `/status` | Show config and stats |
 | `/quit` | Exit |
+
+### Gemini CLI Integration
+
+Mnemosyne can delegate tasks to [Gemini CLI](https://github.com/google-gemini/gemini-cli) — Google's open-source terminal agent with 1M token context, Google Search grounding, and built-in tools.
+
+**How it works:** Mnemosyne retrieves relevant codebase context via RAG, injects your MEMORY.md and conversation history, then sends the enriched prompt to Gemini CLI. The response flows back into your Mnemosyne session.
+
+```bash
+# From the chat session
+myproject > /gemini refactor the auth module to use JWT
+
+  preparing context for Gemini CLI...
+  ──────────── gemini cli ────────────
+
+  ... Gemini CLI streams response ...
+
+  ────────────────────────────────────
+  gemini-cli  |  12.3s  |  2847 chars
+
+# Or as a standalone command
+mnemosyne gemini "explain the API architecture"
+
+# Full interactive Gemini CLI session
+mnemosyne gemini -i
+```
+
+**Prerequisites:** Node.js 20+ and Gemini CLI installed:
+
+```bash
+npm install -g @google/gemini-cli
+```
 
 ### Smart Ingestion
 
@@ -209,6 +253,8 @@ mnemosyne init              # Initialize in current project
 mnemosyne ingest <path>     # Scan and index a directory
 mnemosyne ask "<question>"  # Single-shot RAG query
 mnemosyne chat              # Interactive agentic REPL
+mnemosyne gemini "<query>"  # Delegate to Gemini CLI with RAG context
+mnemosyne gemini -i         # Launch Gemini CLI interactive
 mnemosyne status            # Show config and collection stats
 mnemosyne forget            # Wipe the knowledge base
 ```
@@ -220,14 +266,16 @@ mnemosyne forget            # Wipe the knowledge base
 ```
 src/
 ├── cli/
-│   ├── main.py          # Typer CLI (init, ingest, ask, chat, status, forget)
-│   └── chat.py          # Interactive agentic REPL
+│   ├── main.py          # Typer CLI (init, ingest, ask, chat, gemini, status, forget)
+│   └── chat.py          # Interactive agentic REPL v2.0
 └── core/
     ├── config.py        # Pydantic-settings configuration
     ├── providers.py     # LLM provider factory (6 providers)
-    ├── ingester.py      # Smart file scanner + language-aware chunker
+    ├── ingester.py      # Smart file scanner + language-aware chunker + priority scoring
     ├── vector_store.py  # ChromaDB persistence layer
-    └── brain.py         # RAG engine (streaming + conversation history)
+    ├── brain.py         # RAG engine (adaptive retrieval + query rewriting + streaming)
+    ├── web.py           # Web search (DuckDuckGo + news)
+    └── gemini_cli.py    # Gemini CLI bridge (headless, streaming, interactive)
 ```
 
 **Stack:**
@@ -294,5 +342,5 @@ MIT
 ---
 
 <p align="center">
-  <sub>Built with LangChain, ChromaDB, and too much coffee.</sub>
+  <sub>Built with LangChain, ChromaDB, and an unreasonable amount of terminal obsession.</sub>
 </p>

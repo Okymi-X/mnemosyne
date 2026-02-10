@@ -1,7 +1,8 @@
 """
-Mnemosyne -- Provider Factory
+Mnemosyne -- Provider Factory v2.0
 Maps provider names to LangChain chat model classes.
 Supports: google, anthropic, groq, openrouter, openai, ollama.
+Enhanced with smarter defaults and higher context limits.
 """
 
 from __future__ import annotations
@@ -126,7 +127,7 @@ def get_llm(config: MnemosyneConfig | None = None) -> BaseChatModel:
 
     elif provider_name == "anthropic":
         kwargs["anthropic_api_key"] = api_key
-        kwargs["max_tokens"] = 4096
+        kwargs["max_tokens"] = 8192
 
     elif provider_name == "groq":
         kwargs["groq_api_key"] = api_key

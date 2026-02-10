@@ -1,5 +1,5 @@
 """
-Mnemosyne -- CLI Entry Point
+Mnemosyne v2.0 -- CLI Entry Point
 Beautiful, hacker-style terminal interface built with Typer + Rich.
 """
 
@@ -344,6 +344,99 @@ def chat(
         n_results=n_results,
     )
     session.run()
+
+
+# ---------------------------------------------------------------------------
+# gemini  (Gemini CLI integration)
+# ---------------------------------------------------------------------------
+
+@app.command()
+def gemini(
+    query: str = typer.Argument(
+        "",
+        help="Query to send to Gemini CLI with RAG context. Leave empty for interactive mode.",
+    ),
+    model: str = typer.Option(
+        "",
+        "--model",
+        "-m",
+        help="Gemini model to use (e.g. gemini-2.5-flash).",
+    ),
+    interactive: bool = typer.Option(
+        False,
+        "--interactive",
+        "-i",
+        help="Launch Gemini CLI in full interactive mode.",
+    ),
+    n_results: int = typer.Option(
+        10,
+        "--top",
+        "-n",
+        help="Number of context chunks to include.",
+    ),
+) -> None:
+    """Delegate to Gemini CLI with Mnemosyne's RAG context."""
+    from src.core.gemini_cli import (
+        is_gemini_cli_installed,
+        get_install_instructions,
+        query_headless,
+        launch_interactive,
+        _build_context_prompt,
+    )
+
+    if not is_gemini_cli_installed():
+        console.print(f"\n{FAIL} Gemini CLI not found on PATH.\n")
+        console.print(get_install_instructions())
+        raise typer.Exit(code=1)
+
+    # Interactive mode: just launch gemini cli
+    if interactive or not query:
+        if not query:
+            console.print(
+                f"\n{OK} Launching Gemini CLI interactive session...\n"
+                f"   {BRAND} context is available in your project's MEMORY.md.\n"
+            )
+        exit_code = launch_interactive(model=model, cwd=None)
+        raise typer.Exit(code=exit_code)
+
+    # Headless mode: enrich the query with RAG context
+    console.print(f"\n{OK} Preparing RAG context for Gemini CLI...\n")
+
+    codebase_ctx = ""
+    memory = ""
+
+    with console.status("[bright_green]Retrieving context...[/bright_green]"):
+        try:
+            from src.core.vector_store import query as vq
+            from src.core.brain import _load_episodic_memory, _rewrite_query_for_retrieval
+
+            search_q = _rewrite_query_for_retrieval(query)
+            results = vq(search_q, n_results=n_results)
+            if results:
+                parts = [f"### `{r.source}`\n```\n{r.content}\n```" for r in results]
+                codebase_ctx = "\n\n".join(parts)
+            memory = _load_episodic_memory()
+        except Exception as exc:
+            console.print(f"{WARN} Context retrieval failed: {exc}")
+
+    full_prompt = _build_context_prompt(query, codebase_context=codebase_ctx, memory=memory)
+
+    console.print(f"{OK} Sending to Gemini CLI...\n")
+
+    result = query_headless(full_prompt, model=model, timeout=180)
+
+    if result.error:
+        console.print(f"{FAIL} {result.error}")
+        raise typer.Exit(code=1)
+
+    console.print(
+        Panel(
+            Markdown(result.output),
+            title="[magenta]>> Gemini CLI[/magenta]",
+            border_style="magenta",
+            padding=(1, 2),
+        )
+    )
 
 
 # ---------------------------------------------------------------------------

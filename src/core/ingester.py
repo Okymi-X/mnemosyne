@@ -1,8 +1,8 @@
 """
-Mnemosyne -- Smart Ingester
+Mnemosyne -- Smart Ingester v2.0
 Recursively walks a directory, respects .gitignore, filters for code files,
 and chunks documents using LangChain text splitters.
-Supports 80+ file extensions across all major languages, frameworks, and editors.
+Supports 80+ file extensions with priority-based file scoring.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from rich.console import Console
 console = Console(highlight=False)
 
 # ---------------------------------------------------------------------------
-# Supported file extensions — grouped by category
+# Supported file extensions -- grouped by category
 # ---------------------------------------------------------------------------
 
 CODE_EXTENSIONS: set[str] = {
@@ -155,6 +155,46 @@ class DocumentChunk:
 
 
 # ---------------------------------------------------------------------------
+# File priority scoring -- higher = more important for context
+# ---------------------------------------------------------------------------
+
+_HIGH_PRIORITY_NAMES: set[str] = {
+    "README.md", "MEMORY.md", "CHANGELOG.md",
+    "pyproject.toml", "package.json", "Cargo.toml", "go.mod",
+    "Makefile", "Dockerfile", "docker-compose.yml",
+    ".env.example", "tsconfig.json",
+}
+
+_HIGH_PRIORITY_PATTERNS: list[str] = [
+    "main", "app", "index", "server", "config", "routes", "schema",
+    "models", "auth", "api", "handler", "controller", "service",
+]
+
+
+def _compute_priority(filepath: Path, root: Path) -> str:
+    """Compute a priority tag for a file: 'high', 'medium', or 'low'."""
+    name = filepath.name
+    rel = str(filepath.relative_to(root)).lower()
+    
+    # Explicit high-priority files
+    if name in _HIGH_PRIORITY_NAMES:
+        return "high"
+    
+    # Pattern-based priority
+    stem = filepath.stem.lower()
+    if any(pat in stem for pat in _HIGH_PRIORITY_PATTERNS):
+        return "high"
+    
+    # Tests and generated files are lower priority
+    if "test" in rel or "spec" in rel or "__" in name:
+        return "low"
+    if "generated" in rel or "vendor" in rel or "migrations" in rel:
+        return "low"
+    
+    return "medium"
+
+
+# ---------------------------------------------------------------------------
 # Gitignore helper
 # ---------------------------------------------------------------------------
 
@@ -241,10 +281,15 @@ def scan_directory(
 
         file_count += 1
         rel = str(filepath.relative_to(root))
+        priority = _compute_priority(filepath, root)
         yield IngestedDocument(
             source=rel,
             content=content,
-            metadata={"source": rel, "extension": filepath.suffix or filepath.name},
+            metadata={
+                "source": rel,
+                "extension": filepath.suffix or filepath.name,
+                "priority": priority,
+            },
         )
 
     if file_count == 0:
@@ -349,6 +394,7 @@ def chunk_documents(
                         "source": doc.source,
                         "chunk_index": str(idx),
                         "extension": ext,
+                        "priority": doc.metadata.get("priority", "medium"),
                     },
                 )
             )

@@ -1,5 +1,5 @@
 """
-Mnemosyne — Vector Store
+Mnemosyne -- Vector Store
 Handles all ChromaDB interactions: adding documents, querying,
 and resetting the collection.
 """
@@ -99,7 +99,7 @@ def query(
 
     if collection.count() == 0:
         console.print(
-            "[yellow]⚠[/yellow] The knowledge base is empty. "
+            "[yellow][!][/yellow] The knowledge base is empty. "
             "Run [green]mnemosyne ingest <path>[/green] first."
         )
         return []
@@ -111,7 +111,7 @@ def query(
             where=filter_meta,
         )
     except Exception as exc:
-        console.print(f"[red]✗[/red] Query failed: {exc}")
+        console.print(f"[red][-][/red] Query failed: {exc}")
         return []
 
     items: list[QueryResult] = []
@@ -124,7 +124,7 @@ def query(
             QueryResult(
                 content=doc,
                 source=meta.get("source", "unknown"),
-                score=round(1 - dist, 4),     # cosine → similarity
+                score=round(1 - dist, 4),     # cosine -> similarity
                 metadata=meta,
             )
         )
@@ -142,6 +142,6 @@ def reset_collection() -> None:
     client = get_chroma_client()
     try:
         client.delete_collection(name=config.collection_name)
-        console.print("[green]✓[/green] Collection wiped successfully.")
+        console.print("[green][+][/green] Collection wiped successfully.")
     except Exception:
-        console.print("[yellow]⚠[/yellow] No collection to delete — already clean.")
+        console.print("[yellow][!][/yellow] No collection to delete -- already clean.")
