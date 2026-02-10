@@ -5,7 +5,6 @@ REPL with autonomous tool-calling agent and modular command handlers.
 
 from __future__ import annotations
 
-import os
 import sys
 import time
 from pathlib import Path
@@ -16,39 +15,77 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import NestedCompleter, PathCompleter, WordCompleter
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import InMemoryHistory
+from rich import box
 from rich.panel import Panel
 from rich.rule import Rule
 from rich.table import Table
-from rich import box
-
-# Shared theme -- single source of truth
-from src.cli.theme import (
-    console, PT_STYLE, TABLE_BOX, PATH_RE,
-    G, C, D, M, W, R, Y, A,
-    OK, FAIL, WARN, fsize, tool_icon, VERSION,
-)
 
 # Command modules
 from src.cli.commands.files import (
-    CodeBlock, WriteRecord,
-    extract_blocks, dedup_files, is_identical, view_diff, write_file,
-    cmd_read, cmd_write, cmd_writeall, cmd_undo, cmd_create,
-)
-from src.cli.commands.search import (
-    cmd_ls, cmd_find, cmd_grep, cmd_diff, cmd_copy,
-)
-from src.cli.commands.shell import (
-    cmd_run, cmd_git, cmd_lint, cmd_cd, cmd_ingest,
+    CodeBlock,
+    WriteRecord,
+    cmd_create,
+    cmd_read,
+    cmd_undo,
+    cmd_write,
+    cmd_writeall,
+    dedup_files,
+    extract_blocks,
+    is_identical,
+    view_diff,
+    write_file,
 )
 from src.cli.commands.model import (
-    cmd_set_model, cmd_set_provider, cmd_set_filter, cmd_toggle_readonly,
-    cmd_web, cmd_news, cmd_save, cmd_gemini, cmd_gemini_interactive,
+    cmd_gemini,
+    cmd_gemini_interactive,
+    cmd_news,
+    cmd_save,
+    cmd_set_filter,
+    cmd_set_model,
+    cmd_set_provider,
+    cmd_toggle_readonly,
+    cmd_web,
+)
+from src.cli.commands.search import (
+    cmd_copy,
+    cmd_diff,
+    cmd_find,
+    cmd_grep,
+    cmd_ls,
+)
+from src.cli.commands.shell import (
+    cmd_cd,
+    cmd_git,
+    cmd_ingest,
+    cmd_lint,
+    cmd_run,
 )
 
+# Shared theme -- single source of truth
+from src.cli.theme import (
+    FAIL,
+    OK,
+    PATH_RE,
+    PT_STYLE,
+    TABLE_BOX,
+    VERSION,
+    WARN,
+    A,
+    C,
+    D,
+    G,
+    M,
+    R,
+    W,
+    Y,
+    console,
+    tool_icon,
+)
 
 # ---------------------------------------------------------------------------
 # Prompt & Completion
 # ---------------------------------------------------------------------------
+
 
 def _prompt(readonly: bool, filter_set: set[str] | None) -> HTML:
     parts = ["<path>" + Path.cwd().name + "</path>"]
@@ -66,42 +103,73 @@ def _make_completer() -> NestedCompleter:
     dir_comp = PathCompleter(only_directories=True, expanduser=True)
     provs = WordCompleter(["groq", "anthropic", "google", "openai", "openrouter", "ollama"])
 
-    return NestedCompleter.from_nested_dict({
-        "/help": None, "/clear": None, "/compact": None,
-        "/context": None, "/status": None, "/tools": None,
-        "/quit": None, "/exit": None,
-        "/undo": None, "/writeall": None, "/readonly": None, "/copy": None,
-        "/model": None,
-        "/provider": provs,
-        "/read": path_comp, "/write": path_comp, "/create": path_comp,
-        "/ls": dir_comp, "/cd": dir_comp, "/diff": path_comp,
-        "/find": None, "/grep": None, "/run": None,
-        "/ingest": dir_comp, "/save": path_comp,
-        "/web": None, "/news": None,
-        "/gemini": None, "/gemini-interactive": None,
-        "/git": None, "/lint": path_comp,
-        "/filter": WordCompleter([".py", ".js", ".ts", ".md", ".html", ".css", ".rs", ".go"]),
-    })
+    return NestedCompleter.from_nested_dict(
+        {
+            "/help": None,
+            "/clear": None,
+            "/compact": None,
+            "/context": None,
+            "/status": None,
+            "/tools": None,
+            "/quit": None,
+            "/exit": None,
+            "/undo": None,
+            "/writeall": None,
+            "/readonly": None,
+            "/copy": None,
+            "/model": None,
+            "/provider": provs,
+            "/read": path_comp,
+            "/write": path_comp,
+            "/create": path_comp,
+            "/ls": dir_comp,
+            "/cd": dir_comp,
+            "/diff": path_comp,
+            "/find": None,
+            "/grep": None,
+            "/run": None,
+            "/ingest": dir_comp,
+            "/save": path_comp,
+            "/web": None,
+            "/news": None,
+            "/gemini": None,
+            "/gemini-interactive": None,
+            "/git": None,
+            "/lint": path_comp,
+            "/filter": WordCompleter([".py", ".js", ".ts", ".md", ".html", ".css", ".rs", ".go"]),
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # Welcome & Help (standalone display functions)
 # ---------------------------------------------------------------------------
 
+
 def _detect_project() -> str:
     cwd = Path.cwd()
     indicators: dict[str, str] = {
-        "package.json": "Node.js", "pyproject.toml": "Python",
-        "Cargo.toml": "Rust", "go.mod": "Go",
-        "pom.xml": "Java (Maven)", "build.gradle": "Java (Gradle)",
-        "Gemfile": "Ruby", "composer.json": "PHP",
+        "package.json": "Node.js",
+        "pyproject.toml": "Python",
+        "Cargo.toml": "Rust",
+        "go.mod": "Go",
+        "pom.xml": "Java (Maven)",
+        "build.gradle": "Java (Gradle)",
+        "Gemfile": "Ruby",
+        "composer.json": "PHP",
         "tsconfig.json": "TypeScript",
-        "next.config.js": "Next.js", "next.config.mjs": "Next.js", "next.config.ts": "Next.js",
-        "vite.config.ts": "Vite", "vite.config.js": "Vite",
-        "svelte.config.js": "SvelteKit", "astro.config.mjs": "Astro",
+        "next.config.js": "Next.js",
+        "next.config.mjs": "Next.js",
+        "next.config.ts": "Next.js",
+        "vite.config.ts": "Vite",
+        "vite.config.js": "Vite",
+        "svelte.config.js": "SvelteKit",
+        "astro.config.mjs": "Astro",
         "nuxt.config.ts": "Nuxt",
-        "Dockerfile": "Docker", "flake.nix": "Nix",
-        "CMakeLists.txt": "C/C++ (CMake)", "Makefile": "Make",
+        "Dockerfile": "Docker",
+        "flake.nix": "Nix",
+        "CMakeLists.txt": "C/C++ (CMake)",
+        "Makefile": "Make",
     }
     detected = [label for fn, label in indicators.items() if (cwd / fn).exists()]
     return " + ".join(detected[:3]) if detected else "Unknown"
@@ -115,9 +183,11 @@ def _welcome(provider: str, model: str, chunks: int | str) -> None:
     project_type = _detect_project()
 
     from src.core.tools import TOOL_REGISTRY
+
     tools_count = len(TOOL_REGISTRY)
 
-    from src.core.gemini_cli import is_gemini_cli_installed, get_gemini_cli_version
+    from src.core.gemini_cli import get_gemini_cli_version, is_gemini_cli_installed
+
     gemini_line = ""
     if is_gemini_cli_installed():
         ver = get_gemini_cli_version() or "installed"
@@ -132,64 +202,90 @@ def _welcome(provider: str, model: str, chunks: int | str) -> None:
         f"   {D}cwd{R}        {D}{Path.cwd()}{R}"
         f"{gemini_line}"
     )
-    console.print(Panel(
-        info, title=f"{G}v{VERSION}{R} {D}agent{R}",
-        subtitle=f"{D}/ commands{R}  {D}|{R}  {D}Ctrl-C exit{R}",
-        border_style="bright_green", padding=(0, 1),
-    ))
+    console.print(
+        Panel(
+            info,
+            title=f"{G}v{VERSION}{R} {D}agent{R}",
+            subtitle=f"{D}/ commands{R}  {D}|{R}  {D}Ctrl-C exit{R}",
+            border_style="bright_green",
+            padding=(0, 1),
+        )
+    )
     console.print()
 
 
 def _help() -> None:
     t = Table(
-        box=TABLE_BOX, show_header=True, header_style="bold bright_green",
-        padding=(0, 2), title=f"{G}commands{R}", title_style="",
+        box=TABLE_BOX,
+        show_header=True,
+        header_style="bold bright_green",
+        padding=(0, 2),
+        title=f"{G}commands{R}",
+        title_style="",
         show_edge=False,
     )
     t.add_column("command", style="bright_green", min_width=20, no_wrap=True)
     t.add_column("description", style="dim white")
 
     sections = [
-        (f"{W}conversation{R}", [
-            ("/clear", "reset conversation history"),
-            ("/compact", "smart-trim old turns to save context"),
-            ("/save [path]", "export chat transcript to markdown"),
-            ("/status", "show config and session stats"),
-            ("/context", "inspect conversation messages"),
-        ]),
-        (f"{W}model{R}", [
-            ("/model <name>", "switch model mid-session"),
-            ("/provider <name>", "switch LLM provider"),
-            ("/filter <exts>", "restrict context by extension (.py,.ts)"),
-            ("/web <query>", "search the web, inject results"),
-        ]),
-        (f"{W}files{R}", [
-            ("/read <path>", "load file into context"),
-            ("/write <path>", "write last code block to disk"),
-            ("/writeall", "write all detected files"),
-            ("/undo", "revert last written files"),
-            ("/readonly", "toggle read-only safety lock"),
-            ("/create <path>", "create empty file or directory"),
-        ]),
-        (f"{W}search{R}", [
-            ("/ls [path]", "list directory tree"),
-            ("/find <pattern>", "find files by name pattern"),
-            ("/grep <pattern>", "search inside file contents"),
-            ("/diff [path]", "show git diff"),
-            ("/copy", "copy last code block to clipboard"),
-        ]),
-        (f"{W}system{R}", [
-            ("/run <cmd>", "execute shell command"),
-            ("/git <args>", "git with smart commit messages"),
-            ("/lint [path]", "run available linters"),
-            ("/ingest [path]", "re-index codebase into vector store"),
-            ("/cd <path>", "change working directory"),
-        ]),
-        (f"{W}agent{R}", [
-            ("/tools", "show available agent tools"),
-            ("/gemini <query>", "delegate to Gemini CLI with RAG context"),
-            ("/gemini-interactive", "launch full Gemini CLI session"),
-        ]),
+        (
+            f"{W}conversation{R}",
+            [
+                ("/clear", "reset conversation history"),
+                ("/compact", "smart-trim old turns to save context"),
+                ("/save [path]", "export chat transcript to markdown"),
+                ("/status", "show config and session stats"),
+                ("/context", "inspect conversation messages"),
+            ],
+        ),
+        (
+            f"{W}model{R}",
+            [
+                ("/model <name>", "switch model mid-session"),
+                ("/provider <name>", "switch LLM provider"),
+                ("/filter <exts>", "restrict context by extension (.py,.ts)"),
+                ("/web <query>", "search the web, inject results"),
+            ],
+        ),
+        (
+            f"{W}files{R}",
+            [
+                ("/read <path>", "load file into context"),
+                ("/write <path>", "write last code block to disk"),
+                ("/writeall", "write all detected files"),
+                ("/undo", "revert last written files"),
+                ("/readonly", "toggle read-only safety lock"),
+                ("/create <path>", "create empty file or directory"),
+            ],
+        ),
+        (
+            f"{W}search{R}",
+            [
+                ("/ls [path]", "list directory tree"),
+                ("/find <pattern>", "find files by name pattern"),
+                ("/grep <pattern>", "search inside file contents"),
+                ("/diff [path]", "show git diff"),
+                ("/copy", "copy last code block to clipboard"),
+            ],
+        ),
+        (
+            f"{W}system{R}",
+            [
+                ("/run <cmd>", "execute shell command"),
+                ("/git <args>", "git with smart commit messages"),
+                ("/lint [path]", "run available linters"),
+                ("/ingest [path]", "re-index codebase into vector store"),
+                ("/cd <path>", "change working directory"),
+            ],
+        ),
+        (
+            f"{W}agent{R}",
+            [
+                ("/tools", "show available agent tools"),
+                ("/gemini <query>", "delegate to Gemini CLI with RAG context"),
+                ("/gemini-interactive", "launch full Gemini CLI session"),
+            ],
+        ),
     ]
 
     for header, cmds in sections:
@@ -210,6 +306,7 @@ def _help() -> None:
 # ---------------------------------------------------------------------------
 # Auto-detect file paths in user queries
 # ---------------------------------------------------------------------------
+
 
 def _auto_read_paths(query: str, history: list[BaseMessage]) -> list[str]:
     already_loaded: set[str] = set()
@@ -245,8 +342,8 @@ def _auto_read_paths(query: str, history: list[BaseMessage]) -> list[str]:
 # Session
 # ===========================================================================
 
-class ChatSession:
 
+class ChatSession:
     def __init__(self, provider_override: str | None = None, n_results: int = 8):
         self.n_results = n_results
         self.history: list[BaseMessage] = []
@@ -279,6 +376,7 @@ class ChatSession:
     def _check_index(self) -> None:
         try:
             from src.core.vector_store import get_or_create_collection
+
             if get_or_create_collection().count() == 0:
                 console.print(f"  {WARN} Index is empty. Auto-running /ingest .")
                 cmd_ingest(".")
@@ -286,8 +384,8 @@ class ChatSession:
             pass
 
     def _get_toolbar(self) -> HTML:
+        from src.core.config import MnemosyneConfig, get_config
         from src.core.providers import get_provider_display
-        from src.core.config import get_config, MnemosyneConfig
 
         cfg = get_config()
         if self.provider_override:
@@ -305,7 +403,7 @@ class ChatSession:
 
         parts = [
             f" <b>{prov}</b> <style bg='#2a2a4e' fg='#888888'> {model} </style>",
-            f" <style fg='#e5a00d'>agent</style>",
+            " <style fg='#e5a00d'>agent</style>",
             f" t:{self.turns}",
             f" ~{tok_display} tok",
         ]
@@ -323,7 +421,7 @@ class ChatSession:
     # -- Core: agent-powered respond ----------------------------------------
 
     def _ask(self, q: str) -> None:
-        from src.core.agent import run_agent, AgentStep
+        from src.core.agent import run_agent
 
         injected = _auto_read_paths(q, self.history)
         if injected:
@@ -379,20 +477,12 @@ class ChatSession:
                 if tc and tr:
                     tool_count += 1
                     icon = tool_icon(tc.name)
-                    params_preview = " ".join(
-                        str(v)[:50] for v in tc.params.values()
-                    )
+                    params_preview = " ".join(str(v)[:50] for v in tc.params.values())
                     if tr.success:
                         # Show first meaningful line of output
-                        out_lines = [
-                            l.strip() for l in tr.output.split("\n")
-                            if l.strip() and not l.startswith("[")
-                        ]
+                        out_lines = [l.strip() for l in tr.output.split("\n") if l.strip() and not l.startswith("[")]
                         out_preview = out_lines[0][:70] if out_lines else ""
-                        console.print(
-                            f"  {A}{icon}{R} {C}{tc.name}{R}  "
-                            f"{D}{params_preview}{R}"
-                        )
+                        console.print(f"  {A}{icon}{R} {C}{tc.name}{R}  {D}{params_preview}{R}")
                         if out_preview:
                             console.print(
                                 f"     {D}{out_preview}"
@@ -402,13 +492,8 @@ class ChatSession:
                         else:
                             console.print(f"     {D}{tr.duration:.1f}s{R}")
                     else:
-                        console.print(
-                            f"  [bold red]x[/] {C}{tc.name}{R}  "
-                            f"{D}{params_preview}{R}"
-                        )
-                        console.print(
-                            f"     {D}{tr.output[:60]}{R}"
-                        )
+                        console.print(f"  [bold red]x[/] {C}{tc.name}{R}  {D}{params_preview}{R}")
+                        console.print(f"     {D}{tr.output[:60]}{R}")
                     console.print()
 
             elif event == "step_done":
@@ -546,40 +631,46 @@ class ChatSession:
         flt = [self.filter_ext]
 
         cmds: dict[str, object] = {
-            "/quit": None, "/exit": None, "/q": None,
-            "/help":      lambda: _help(),
-            "/clear":     lambda: self._clear(),
-            "/compact":   lambda: self._compact(),
-            "/context":   lambda: self._context(),
-            "/status":    lambda: self._status(),
-            "/model":     lambda: cmd_set_model(a, self._model),
-            "/provider":  lambda: cmd_set_provider(a, self._provider, self._model),
-            "/read":      lambda: cmd_read(a, self.history),
-            "/write":     lambda: cmd_write(a, self.last, self.last_writes, fw, self.readonly),
-            "/writeall":  lambda: cmd_writeall(self.last, self.last_writes, fw, self.readonly),
-            "/undo":      lambda: cmd_undo(self.last_writes),
-            "/readonly":  lambda: cmd_toggle_readonly(ro),
-            "/filter":    lambda: cmd_set_filter(a, flt),
-            "/create":    lambda: cmd_create(a, self.readonly),
-            "/ls":        lambda: cmd_ls(a),
-            "/find":      lambda: cmd_find(a),
-            "/grep":      lambda: cmd_grep(a),
-            "/diff":      lambda: cmd_diff(a),
-            "/run":       lambda: cmd_run(a),
-            "/ingest":    lambda: cmd_ingest(a),
-            "/cd":        lambda: cmd_cd(a, self._check_index),
-            "/save":      lambda: cmd_save(a, self.history),
-            "/web":       lambda: cmd_web(a, self.history),
-            "/news":      lambda: cmd_news(a, self.history),
-            "/git":       lambda: cmd_git(a, self.provider_override, self.model_override),
-            "/gemini":    lambda: cmd_gemini(
-                a, self.history, self.filter_ext,
-                [self.last], self.readonly, self._confirm,
+            "/quit": None,
+            "/exit": None,
+            "/q": None,
+            "/help": lambda: _help(),
+            "/clear": lambda: self._clear(),
+            "/compact": lambda: self._compact(),
+            "/context": lambda: self._context(),
+            "/status": lambda: self._status(),
+            "/model": lambda: cmd_set_model(a, self._model),
+            "/provider": lambda: cmd_set_provider(a, self._provider, self._model),
+            "/read": lambda: cmd_read(a, self.history),
+            "/write": lambda: cmd_write(a, self.last, self.last_writes, fw, self.readonly),
+            "/writeall": lambda: cmd_writeall(self.last, self.last_writes, fw, self.readonly),
+            "/undo": lambda: cmd_undo(self.last_writes),
+            "/readonly": lambda: cmd_toggle_readonly(ro),
+            "/filter": lambda: cmd_set_filter(a, flt),
+            "/create": lambda: cmd_create(a, self.readonly),
+            "/ls": lambda: cmd_ls(a),
+            "/find": lambda: cmd_find(a),
+            "/grep": lambda: cmd_grep(a),
+            "/diff": lambda: cmd_diff(a),
+            "/run": lambda: cmd_run(a),
+            "/ingest": lambda: cmd_ingest(a),
+            "/cd": lambda: cmd_cd(a, self._check_index),
+            "/save": lambda: cmd_save(a, self.history),
+            "/web": lambda: cmd_web(a, self.history),
+            "/news": lambda: cmd_news(a, self.history),
+            "/git": lambda: cmd_git(a, self.provider_override, self.model_override),
+            "/gemini": lambda: cmd_gemini(
+                a,
+                self.history,
+                self.filter_ext,
+                [self.last],
+                self.readonly,
+                self._confirm,
             ),
             "/gemini-interactive": lambda: cmd_gemini_interactive(),
-            "/lint":      lambda: cmd_lint(a),
-            "/copy":      lambda: cmd_copy(self.last),
-            "/tools":     lambda: self._show_tools(),
+            "/lint": lambda: cmd_lint(a),
+            "/copy": lambda: cmd_copy(self.last),
+            "/tools": lambda: self._show_tools(),
         }
 
         handler = cmds.get(c, "UNKNOWN")
@@ -627,6 +718,7 @@ class ChatSession:
             console.print(f"  {WARN} not enough history\n")
             return
         from src.core.brain import summarise_history
+
         old_len = len(self.history)
         self.history = summarise_history(self.history, keep_last=4)
         removed = old_len - len(self.history)
@@ -635,10 +727,15 @@ class ChatSession:
     def _show_tools(self) -> None:
         """Display available agent tools."""
         from src.core.tools import TOOL_REGISTRY
+
         t = Table(
-            box=TABLE_BOX, show_header=True, header_style="bold #e5a00d",
-            title=f"{A}agent tools{R}", title_style="",
-            padding=(0, 2), show_edge=False,
+            box=TABLE_BOX,
+            show_header=True,
+            header_style="bold #e5a00d",
+            title=f"{A}agent tools{R}",
+            title_style="",
+            padding=(0, 2),
+            show_edge=False,
         )
         t.add_column("tool", style="bold cyan", min_width=18, no_wrap=True)
         t.add_column("params", style="dim", min_width=20)
@@ -653,9 +750,13 @@ class ChatSession:
 
     def _context(self) -> None:
         t = Table(
-            box=TABLE_BOX, show_header=True, header_style="bold cyan",
-            title=f"{D}conversation context{R}", title_style="",
-            padding=(0, 1), show_edge=False,
+            box=TABLE_BOX,
+            show_header=True,
+            header_style="bold cyan",
+            title=f"{D}conversation context{R}",
+            title_style="",
+            padding=(0, 1),
+            show_edge=False,
         )
         t.add_column("#", style="dim", width=4, justify="right")
         t.add_column("role", width=10)
@@ -672,8 +773,8 @@ class ChatSession:
         console.print(f"\n  {D}{len(self.history)} messages | ~{est_tokens:,} tokens | {self.turns} turns{R}\n")
 
     def _status(self) -> None:
-        from src.core.providers import get_provider_display, PROVIDERS
         from src.core.config import get_config
+        from src.core.providers import get_provider_display
         from src.core.vector_store import get_or_create_collection
 
         cfg = get_config()
@@ -698,7 +799,8 @@ class ChatSession:
         t.add_row("filters", str(list(self.filter_ext)) if self.filter_ext else "None")
         t.add_row("cwd", str(Path.cwd()))
 
-        from src.core.gemini_cli import is_gemini_cli_installed, get_gemini_cli_version
+        from src.core.gemini_cli import get_gemini_cli_version, is_gemini_cli_installed
+
         if is_gemini_cli_installed():
             ver = get_gemini_cli_version() or "yes"
             t.add_row("gemini-cli", f"[green]{ver}[/green]")
@@ -726,7 +828,7 @@ class ChatSession:
     # -- Main loop ---------------------------------------------------------
 
     def run(self) -> None:
-        from src.core.config import get_config, MnemosyneConfig
+        from src.core.config import MnemosyneConfig, get_config
         from src.core.providers import get_provider_display
         from src.core.vector_store import get_or_create_collection
 
@@ -787,8 +889,22 @@ class ChatSession:
                 cmd_git(raw[3:].strip(), self.provider_override, self.model_override)
                 continue
 
-            if first in ("curl", "wget", "npm", "uv", "pip", "python", "node",
-                         "docker", "grep", "cat", "echo", "mkdir", "rm", "rmdir"):
+            if first in (
+                "curl",
+                "wget",
+                "npm",
+                "uv",
+                "pip",
+                "python",
+                "node",
+                "docker",
+                "grep",
+                "cat",
+                "echo",
+                "mkdir",
+                "rm",
+                "rmdir",
+            ):
                 console.print(f"  {D}executing shell command...{R}")
                 cmd_run(raw)
                 continue

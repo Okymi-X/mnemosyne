@@ -8,21 +8,28 @@ import subprocess
 import sys
 from pathlib import Path
 
+from rich import box
 from rich.syntax import Syntax
 from rich.table import Table
 from rich.tree import Tree
-from rich import box
 
-from src.cli.theme import (
-    console, IGNORED,
-    C, D, R, OK, FAIL, WARN, fsize,
-)
 from src.cli.commands.files import extract_blocks
-
+from src.cli.theme import (
+    FAIL,
+    IGNORED,
+    OK,
+    WARN,
+    C,
+    D,
+    R,
+    console,
+    fsize,
+)
 
 # ---------------------------------------------------------------------------
 # /ls
 # ---------------------------------------------------------------------------
+
 
 def cmd_ls(path: str) -> None:
     """List directory tree with sizes."""
@@ -60,6 +67,7 @@ def cmd_ls(path: str) -> None:
 # /find
 # ---------------------------------------------------------------------------
 
+
 def cmd_find(pat: str) -> None:
     """Find files by name pattern."""
     if not pat:
@@ -92,6 +100,7 @@ def cmd_find(pat: str) -> None:
 # /grep
 # ---------------------------------------------------------------------------
 
+
 def cmd_grep(pat: str) -> None:
     """Search inside file contents using git-grep or manual fallback."""
     if not pat:
@@ -102,7 +111,10 @@ def cmd_grep(pat: str) -> None:
     try:
         r = subprocess.run(
             ["git", "grep", "-n", "--color=never", "-I", pat],
-            capture_output=True, text=True, timeout=10, cwd=Path.cwd(),
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=Path.cwd(),
         )
         if r.stdout:
             hits = r.stdout.strip().split("\n")[:25]
@@ -148,6 +160,7 @@ def cmd_grep(pat: str) -> None:
 # /diff
 # ---------------------------------------------------------------------------
 
+
 def cmd_diff(path: str) -> None:
     """Show git diff."""
     try:
@@ -167,6 +180,7 @@ def cmd_diff(path: str) -> None:
 # /copy
 # ---------------------------------------------------------------------------
 
+
 def cmd_copy(last_response: str) -> None:
     """Copy the last code block to clipboard."""
     if not last_response:
@@ -183,8 +197,7 @@ def cmd_copy(last_response: str) -> None:
         elif sys.platform == "darwin":
             subprocess.run("pbcopy", input=content.encode("utf-8"), check=True)
         else:
-            subprocess.run(["xclip", "-selection", "clipboard"],
-                           input=content.encode("utf-8"), check=True)
+            subprocess.run(["xclip", "-selection", "clipboard"], input=content.encode("utf-8"), check=True)
         console.print(f"  {OK} copied {len(content)} chars to clipboard\n")
     except Exception:
         console.print(f"  {WARN} clipboard not available\n")

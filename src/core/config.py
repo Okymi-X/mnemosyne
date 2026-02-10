@@ -20,7 +20,7 @@ class MnemosyneConfig(BaseSettings):
     )
 
     # -- Provider selection ------------------------------------------------
-    llm_provider: str = "google"   # google | anthropic | groq | openrouter | openai | ollama
+    llm_provider: str = "google"  # google | anthropic | groq | openrouter | openai | ollama
 
     # -- API keys (set whichever matches your provider) --------------------
     google_api_key: str = ""
@@ -48,6 +48,7 @@ def get_config() -> MnemosyneConfig:
     # Resolve relative path to absolute based on INITIAL cwd
     # This prevents DB lock errors if the chat session changes directory.
     import os
+
     if not os.path.isabs(cfg.chroma_db_path):
         cfg.chroma_db_path = os.path.abspath(cfg.chroma_db_path)
     return cfg

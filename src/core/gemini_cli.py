@@ -6,14 +6,13 @@ Supports headless queries, interactive delegation, streaming, and context piping
 
 from __future__ import annotations
 
-import json
 import os
 import shutil
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from collections.abc import Generator
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Generator
 
 from rich.console import Console
 
@@ -23,6 +22,7 @@ console = Console(highlight=False)
 # ---------------------------------------------------------------------------
 # Detection & status
 # ---------------------------------------------------------------------------
+
 
 def is_gemini_cli_installed() -> bool:
     """Check if Gemini CLI (gemini) is available on PATH."""
@@ -34,7 +34,9 @@ def get_gemini_cli_version() -> str | None:
     try:
         r = subprocess.run(
             ["gemini", "--version"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if r.returncode == 0:
             return r.stdout.strip()
@@ -53,22 +55,15 @@ def get_install_instructions() -> str:
             "  npx @google/gemini-cli"
         )
     elif sys.platform == "darwin":
-        return (
-            "Install Gemini CLI:\n"
-            "  brew install gemini-cli\n"
-            "  # or via npm:\n"
-            "  npm install -g @google/gemini-cli"
-        )
+        return "Install Gemini CLI:\n  brew install gemini-cli\n  # or via npm:\n  npm install -g @google/gemini-cli"
     else:
-        return (
-            "Install Gemini CLI:\n"
-            "  npm install -g @google/gemini-cli"
-        )
+        return "Install Gemini CLI:\n  npm install -g @google/gemini-cli"
 
 
 # ---------------------------------------------------------------------------
 # Context builder
 # ---------------------------------------------------------------------------
+
 
 def build_context_prompt(
     query: str,
@@ -106,9 +101,11 @@ def build_context_prompt(
 # Execution modes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class GeminiCLIResult:
     """Result from a Gemini CLI invocation."""
+
     output: str
     exit_code: int
     model: str = ""
@@ -165,12 +162,14 @@ def query_headless(
         )
     except subprocess.TimeoutExpired:
         return GeminiCLIResult(
-            output="", exit_code=-2,
+            output="",
+            exit_code=-2,
             error=f"Gemini CLI timed out after {timeout}s",
         )
     except Exception as exc:
         return GeminiCLIResult(
-            output="", exit_code=-3,
+            output="",
+            exit_code=-3,
             error=str(exc),
         )
 
@@ -240,10 +239,7 @@ def launch_interactive(
     Returns exit code when the user quits Gemini CLI.
     """
     if not is_gemini_cli_installed():
-        console.print(
-            f"[red][-][/red] Gemini CLI not installed.\n"
-            f"[dim]{get_install_instructions()}[/dim]"
-        )
+        console.print(f"[red][-][/red] Gemini CLI not installed.\n[dim]{get_install_instructions()}[/dim]")
         return -1
 
     cmd: list[str] = ["gemini"]

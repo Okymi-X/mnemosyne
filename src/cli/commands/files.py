@@ -15,18 +15,26 @@ from langchain_core.messages import HumanMessage
 from rich.syntax import Syntax
 
 from src.cli.theme import (
-    console, BLOCK_RE,
-    C, D, G, R, Y, OK, FAIL, WARN, fsize,
+    BLOCK_RE,
+    FAIL,
+    OK,
+    WARN,
+    C,
+    D,
+    R,
+    console,
+    fsize,
 )
-
 
 # ---------------------------------------------------------------------------
 # Data types
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class CodeBlock:
     """A fenced code block parsed from LLM output."""
+
     lang: str
     path: str
     content: str
@@ -35,6 +43,7 @@ class CodeBlock:
 @dataclass
 class WriteRecord:
     """Tracks a single file write for undo support."""
+
     path: str
     had_backup: bool
     backup_path: str
@@ -44,12 +53,10 @@ class WriteRecord:
 # Code-block extraction
 # ---------------------------------------------------------------------------
 
+
 def extract_blocks(text: str) -> list[CodeBlock]:
     """Parse all fenced code blocks from markdown text."""
-    return [
-        CodeBlock(m.group(1) or "", (m.group(2) or "").strip(), m.group(3))
-        for m in BLOCK_RE.finditer(text)
-    ]
+    return [CodeBlock(m.group(1) or "", (m.group(2) or "").strip(), m.group(3)) for m in BLOCK_RE.finditer(text)]
 
 
 def dedup_files(blocks: list[CodeBlock]) -> list[CodeBlock]:
@@ -64,6 +71,7 @@ def dedup_files(blocks: list[CodeBlock]) -> list[CodeBlock]:
 # ---------------------------------------------------------------------------
 # Low-level helpers
 # ---------------------------------------------------------------------------
+
 
 def write_file(path: str, content: str, backup: bool = True) -> WriteRecord | None:
     """Write content to *path*, optionally creating a .bak backup."""
@@ -132,6 +140,7 @@ def view_diff(path: str, new_content: str) -> None:
 # mutate history / write tracking.  Keeping logic here keeps chat.py slim.
 # ---------------------------------------------------------------------------
 
+
 def cmd_read(path: str, history: list) -> None:
     """Load a file into conversation context."""
     if not path:
@@ -145,8 +154,9 @@ def cmd_read(path: str, history: list) -> None:
     console.print(f"  {OK} loaded {C}{path}{R} {D}({lc} lines, {fsize(len(content))}){R}\n")
 
 
-def cmd_write(path: str, last_response: str, last_writes: list[WriteRecord],
-              files_written_counter: list[int], readonly: bool) -> None:
+def cmd_write(
+    path: str, last_response: str, last_writes: list[WriteRecord], files_written_counter: list[int], readonly: bool
+) -> None:
     """Write one code block to disk."""
     if readonly:
         console.print(f"  {FAIL} readonly mode is active\n")
@@ -180,8 +190,9 @@ def cmd_write(path: str, last_response: str, last_writes: list[WriteRecord],
             console.print(f"  {WARN} usage: /write <path>\n")
 
 
-def cmd_writeall(last_response: str, last_writes: list[WriteRecord],
-                 files_written_counter: list[int], readonly: bool) -> None:
+def cmd_writeall(
+    last_response: str, last_writes: list[WriteRecord], files_written_counter: list[int], readonly: bool
+) -> None:
     """Write all detected file blocks to disk."""
     if readonly:
         console.print(f"  {FAIL} readonly mode is active\n")

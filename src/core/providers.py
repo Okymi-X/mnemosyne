@@ -14,18 +14,19 @@ from langchain_core.language_models.chat_models import BaseChatModel
 
 from src.core.config import MnemosyneConfig, get_config
 
-
 # ---------------------------------------------------------------------------
 # Provider registry
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class ProviderSpec:
     """Describes how to instantiate a specific LLM provider."""
-    label: str                      # Human-friendly name
-    default_model: str              # Sensible default model id
-    key_field: str                   # Config attribute that holds the API key ("" for keyless)
-    factory: str                    # Dotted import path  module:class
+
+    label: str  # Human-friendly name
+    default_model: str  # Sensible default model id
+    key_field: str  # Config attribute that holds the API key ("" for keyless)
+    factory: str  # Dotted import path  module:class
 
 
 PROVIDERS: dict[str, ProviderSpec] = {
@@ -72,10 +73,12 @@ PROVIDERS: dict[str, ProviderSpec] = {
 # Factory
 # ---------------------------------------------------------------------------
 
+
 def _import_class(dotted: str) -> type:
     """Dynamically import 'module:ClassName'."""
     module_path, class_name = dotted.rsplit(":", 1)
     import importlib
+
     mod = importlib.import_module(module_path)
     return getattr(mod, class_name)
 
@@ -93,20 +96,14 @@ def get_llm(config: MnemosyneConfig | None = None) -> BaseChatModel:
 
     if spec is None:
         supported = ", ".join(sorted(PROVIDERS.keys()))
-        raise ValueError(
-            f"Unknown provider '{provider_name}'. "
-            f"Supported: {supported}"
-        )
+        raise ValueError(f"Unknown provider '{provider_name}'. Supported: {supported}")
 
     # Resolve API key
     api_key: str = ""
     if spec.key_field:
         api_key = getattr(config, spec.key_field, "")
         if not api_key:
-            raise ValueError(
-                f"Provider '{provider_name}' requires "
-                f"{spec.key_field.upper()} to be set in .env"
-            )
+            raise ValueError(f"Provider '{provider_name}' requires {spec.key_field.upper()} to be set in .env")
 
     # Choose model: user override or provider default
     model = config.llm_model or spec.default_model

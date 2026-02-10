@@ -8,12 +8,12 @@ Supports 80+ file extensions with priority-based file scoring.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Generator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Generator
 
 import pathspec
-from langchain_text_splitters import RecursiveCharacterTextSplitter, Language
+from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
 from rich.console import Console
 
 console = Console(highlight=False)
@@ -24,98 +24,166 @@ console = Console(highlight=False)
 
 CODE_EXTENSIONS: set[str] = {
     # -- Systems & compiled languages -----------------------------------
-    ".py", ".pyx", ".pyi", ".pyw",              # Python
-    ".c", ".h", ".cpp", ".hpp", ".cc", ".cxx",   # C / C++
-    ".rs",                                        # Rust
-    ".go",                                        # Go
-    ".java", ".kt", ".kts",                       # Java / Kotlin
-    ".cs",                                        # C#
-    ".swift",                                     # Swift
-    ".m", ".mm",                                  # Objective-C / C++
-    ".scala", ".sc",                              # Scala
-    ".zig",                                       # Zig
-    ".nim",                                       # Nim
-    ".ex", ".exs",                                # Elixir
-    ".erl", ".hrl",                               # Erlang
-    ".hs", ".lhs",                                # Haskell
-    ".ml", ".mli",                                # OCaml
-    ".clj", ".cljs", ".cljc", ".edn",            # Clojure
-    ".dart",                                      # Dart
-    ".r", ".R",                                   # R
-    ".jl",                                        # Julia
-    ".lua",                                       # Lua
-    ".v",                                         # V / Verilog
-    ".sol",                                       # Solidity
-
+    ".py",
+    ".pyx",
+    ".pyi",
+    ".pyw",  # Python
+    ".c",
+    ".h",
+    ".cpp",
+    ".hpp",
+    ".cc",
+    ".cxx",  # C / C++
+    ".rs",  # Rust
+    ".go",  # Go
+    ".java",
+    ".kt",
+    ".kts",  # Java / Kotlin
+    ".cs",  # C#
+    ".swift",  # Swift
+    ".m",
+    ".mm",  # Objective-C / C++
+    ".scala",
+    ".sc",  # Scala
+    ".zig",  # Zig
+    ".nim",  # Nim
+    ".ex",
+    ".exs",  # Elixir
+    ".erl",
+    ".hrl",  # Erlang
+    ".hs",
+    ".lhs",  # Haskell
+    ".ml",
+    ".mli",  # OCaml
+    ".clj",
+    ".cljs",
+    ".cljc",
+    ".edn",  # Clojure
+    ".dart",  # Dart
+    ".r",
+    ".R",  # R
+    ".jl",  # Julia
+    ".lua",  # Lua
+    ".v",  # V / Verilog
+    ".sol",  # Solidity
     # -- Web & scripting ------------------------------------------------
-    ".js", ".mjs", ".cjs",                        # JavaScript
-    ".ts", ".mts", ".cts",                        # TypeScript
-    ".jsx", ".tsx",                               # React
-    ".vue",                                       # Vue
-    ".svelte",                                    # Svelte
-    ".astro",                                     # Astro
-    ".php",                                       # PHP
-    ".rb", ".erb", ".rake",                       # Ruby
-    ".pl", ".pm",                                 # Perl
-
+    ".js",
+    ".mjs",
+    ".cjs",  # JavaScript
+    ".ts",
+    ".mts",
+    ".cts",  # TypeScript
+    ".jsx",
+    ".tsx",  # React
+    ".vue",  # Vue
+    ".svelte",  # Svelte
+    ".astro",  # Astro
+    ".php",  # PHP
+    ".rb",
+    ".erb",
+    ".rake",  # Ruby
+    ".pl",
+    ".pm",  # Perl
     # -- Shells & scripts -----------------------------------------------
-    ".sh", ".bash", ".zsh", ".fish",              # Shell
-    ".ps1", ".psm1", ".psd1",                     # PowerShell
-    ".bat", ".cmd",                               # Windows batch
-
+    ".sh",
+    ".bash",
+    ".zsh",
+    ".fish",  # Shell
+    ".ps1",
+    ".psm1",
+    ".psd1",  # PowerShell
+    ".bat",
+    ".cmd",  # Windows batch
     # -- Markup & styling -----------------------------------------------
-    ".html", ".htm", ".xhtml",                    # HTML
-    ".css", ".scss", ".sass", ".less", ".styl",   # CSS & preprocessors
-    ".xml", ".xsl", ".xslt", ".svg",              # XML
-
+    ".html",
+    ".htm",
+    ".xhtml",  # HTML
+    ".css",
+    ".scss",
+    ".sass",
+    ".less",
+    ".styl",  # CSS & preprocessors
+    ".xml",
+    ".xsl",
+    ".xslt",
+    ".svg",  # XML
     # -- Data & config ---------------------------------------------------
-    ".json", ".jsonc", ".json5", ".jsonl",        # JSON
-    ".yaml", ".yml",                              # YAML
-    ".toml",                                      # TOML
-    ".ini", ".cfg", ".conf",                      # INI / config
-    ".env",                                       # Dotenv
-    ".properties",                                # Java properties
-    ".hcl", ".tf", ".tfvars",                     # Terraform / HCL
-
+    ".json",
+    ".jsonc",
+    ".json5",
+    ".jsonl",  # JSON
+    ".yaml",
+    ".yml",  # YAML
+    ".toml",  # TOML
+    ".ini",
+    ".cfg",
+    ".conf",  # INI / config
+    ".env",  # Dotenv
+    ".properties",  # Java properties
+    ".hcl",
+    ".tf",
+    ".tfvars",  # Terraform / HCL
     # -- Documentation & text -------------------------------------------
-    ".md", ".mdx", ".rst", ".txt",                # Markdown / text
-    ".tex", ".bib",                               # LaTeX
-    ".adoc",                                      # AsciiDoc
-    ".org",                                       # Org-mode
-
+    ".md",
+    ".mdx",
+    ".rst",
+    ".txt",  # Markdown / text
+    ".tex",
+    ".bib",  # LaTeX
+    ".adoc",  # AsciiDoc
+    ".org",  # Org-mode
     # -- Database & query -----------------------------------------------
-    ".sql", ".prisma", ".graphql", ".gql",        # SQL / GraphQL
-
+    ".sql",
+    ".prisma",
+    ".graphql",
+    ".gql",  # SQL / GraphQL
     # -- DevOps & CI/CD -------------------------------------------------
-    ".dockerfile",                                # Docker (explicit ext)
-    ".nginx", ".htaccess",                        # Web server configs
-
+    ".dockerfile",  # Docker (explicit ext)
+    ".nginx",
+    ".htaccess",  # Web server configs
     # -- Editor & IDE config --------------------------------------------
-    ".editorconfig",                              # EditorConfig
-    ".prettierrc",                                # Prettier
-    ".eslintrc",                                  # ESLint
-    ".babelrc",                                   # Babel
+    ".editorconfig",  # EditorConfig
+    ".prettierrc",  # Prettier
+    ".eslintrc",  # ESLint
+    ".babelrc",  # Babel
 }
 
 # Files matched by exact name (no extension filter)
 EXACT_FILENAMES: set[str] = {
-    "Dockerfile", "Containerfile",
-    "Makefile", "GNUmakefile",
+    "Dockerfile",
+    "Containerfile",
+    "Makefile",
+    "GNUmakefile",
     "Justfile",
     "Vagrantfile",
-    "Gemfile", "Rakefile",
+    "Gemfile",
+    "Rakefile",
     "CMakeLists.txt",
-    "BUILD", "WORKSPACE",
-    ".gitignore", ".dockerignore", ".eslintignore",
-    "tsconfig.json", "jsconfig.json",
-    "pyproject.toml", "setup.cfg", "setup.py",
-    "Cargo.toml", "Cargo.lock",
-    "go.mod", "go.sum",
-    "package.json", "package-lock.json",
+    "BUILD",
+    "WORKSPACE",
+    ".gitignore",
+    ".dockerignore",
+    ".eslintignore",
+    "tsconfig.json",
+    "jsconfig.json",
+    "pyproject.toml",
+    "setup.cfg",
+    "setup.py",
+    "Cargo.toml",
+    "Cargo.lock",
+    "go.mod",
+    "go.sum",
+    "package.json",
+    "package-lock.json",
     "composer.json",
-    "requirements.txt", "Pipfile",
-    "flake.nix", "shell.nix",
-    ".env.example", ".env.local", ".env.development", ".env.production",
+    "requirements.txt",
+    "Pipfile",
+    "flake.nix",
+    "shell.nix",
+    ".env.example",
+    ".env.local",
+    ".env.development",
+    ".env.production",
 }
 
 # ---------------------------------------------------------------------------
@@ -123,24 +191,43 @@ EXACT_FILENAMES: set[str] = {
 # ---------------------------------------------------------------------------
 
 IGNORED_DIRS: set[str] = {
-    ".git", "__pycache__", "node_modules",
-    "venv", ".venv", ".mnemosyne",
-    ".tox", ".mypy_cache", ".pytest_cache", ".ruff_cache",
-    ".next", ".nuxt", ".output", ".svelte-kit",
-    "dist", "build", ".eggs", "out",
-    "target",                      # Rust / Java / Scala
-    "vendor",                      # Go / PHP / Ruby
-    ".gradle", ".idea", ".vs",     # IDE dirs
-    "coverage", ".nyc_output",     # Test coverage
-    ".terraform",                  # Terraform
-    ".cache", ".parcel-cache",     # Misc caches
-    "bin", "obj",                  # .NET
+    ".git",
+    "__pycache__",
+    "node_modules",
+    "venv",
+    ".venv",
+    ".mnemosyne",
+    ".tox",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".next",
+    ".nuxt",
+    ".output",
+    ".svelte-kit",
+    "dist",
+    "build",
+    ".eggs",
+    "out",
+    "target",  # Rust / Java / Scala
+    "vendor",  # Go / PHP / Ruby
+    ".gradle",
+    ".idea",
+    ".vs",  # IDE dirs
+    "coverage",
+    ".nyc_output",  # Test coverage
+    ".terraform",  # Terraform
+    ".cache",
+    ".parcel-cache",  # Misc caches
+    "bin",
+    "obj",  # .NET
 }
 
 
 @dataclass
 class IngestedDocument:
     """Represents a single file read from disk."""
+
     source: str
     content: str
     metadata: dict[str, str] = field(default_factory=dict)
@@ -149,6 +236,7 @@ class IngestedDocument:
 @dataclass
 class DocumentChunk:
     """A chunk of text with provenance metadata."""
+
     chunk_id: str
     content: str
     metadata: dict[str, str] = field(default_factory=dict)
@@ -159,15 +247,34 @@ class DocumentChunk:
 # ---------------------------------------------------------------------------
 
 _HIGH_PRIORITY_NAMES: set[str] = {
-    "README.md", "MEMORY.md", "CHANGELOG.md",
-    "pyproject.toml", "package.json", "Cargo.toml", "go.mod",
-    "Makefile", "Dockerfile", "docker-compose.yml",
-    ".env.example", "tsconfig.json",
+    "README.md",
+    "MEMORY.md",
+    "CHANGELOG.md",
+    "pyproject.toml",
+    "package.json",
+    "Cargo.toml",
+    "go.mod",
+    "Makefile",
+    "Dockerfile",
+    "docker-compose.yml",
+    ".env.example",
+    "tsconfig.json",
 }
 
 _HIGH_PRIORITY_PATTERNS: list[str] = [
-    "main", "app", "index", "server", "config", "routes", "schema",
-    "models", "auth", "api", "handler", "controller", "service",
+    "main",
+    "app",
+    "index",
+    "server",
+    "config",
+    "routes",
+    "schema",
+    "models",
+    "auth",
+    "api",
+    "handler",
+    "controller",
+    "service",
 ]
 
 
@@ -175,28 +282,29 @@ def _compute_priority(filepath: Path, root: Path) -> str:
     """Compute a priority tag for a file: 'high', 'medium', or 'low'."""
     name = filepath.name
     rel = str(filepath.relative_to(root)).lower()
-    
+
     # Explicit high-priority files
     if name in _HIGH_PRIORITY_NAMES:
         return "high"
-    
+
     # Pattern-based priority
     stem = filepath.stem.lower()
     if any(pat in stem for pat in _HIGH_PRIORITY_PATTERNS):
         return "high"
-    
+
     # Tests and generated files are lower priority
     if "test" in rel or "spec" in rel or "__" in name:
         return "low"
     if "generated" in rel or "vendor" in rel or "migrations" in rel:
         return "low"
-    
+
     return "medium"
 
 
 # ---------------------------------------------------------------------------
 # Gitignore helper
 # ---------------------------------------------------------------------------
+
 
 def _load_gitignore(root: Path) -> pathspec.PathSpec | None:
     """Load .gitignore patterns from the project root, if it exists."""
@@ -241,6 +349,7 @@ def _should_include(filepath: Path, extra_extensions: set[str] | None = None) ->
 # ---------------------------------------------------------------------------
 # Scanner
 # ---------------------------------------------------------------------------
+
 
 def scan_directory(
     root: Path,
@@ -301,43 +410,43 @@ def scan_directory(
 # ---------------------------------------------------------------------------
 
 _EXT_TO_LANGUAGE: dict[str, Language] = {
-    ".py":    Language.PYTHON,
-    ".pyx":   Language.PYTHON,
-    ".pyi":   Language.PYTHON,
-    ".js":    Language.JS,
-    ".mjs":   Language.JS,
-    ".cjs":   Language.JS,
-    ".jsx":   Language.JS,
-    ".ts":    Language.TS,
-    ".mts":   Language.TS,
-    ".tsx":   Language.TS,
-    ".go":    Language.GO,
-    ".rs":    Language.RUST,
-    ".java":  Language.JAVA,
-    ".kt":    Language.KOTLIN,
-    ".kts":   Language.KOTLIN,
+    ".py": Language.PYTHON,
+    ".pyx": Language.PYTHON,
+    ".pyi": Language.PYTHON,
+    ".js": Language.JS,
+    ".mjs": Language.JS,
+    ".cjs": Language.JS,
+    ".jsx": Language.JS,
+    ".ts": Language.TS,
+    ".mts": Language.TS,
+    ".tsx": Language.TS,
+    ".go": Language.GO,
+    ".rs": Language.RUST,
+    ".java": Language.JAVA,
+    ".kt": Language.KOTLIN,
+    ".kts": Language.KOTLIN,
     ".scala": Language.SCALA,
     ".swift": Language.SWIFT,
-    ".rb":    Language.RUBY,
-    ".md":    Language.MARKDOWN,
-    ".mdx":   Language.MARKDOWN,
-    ".rst":   Language.RST,
-    ".html":  Language.HTML,
-    ".htm":   Language.HTML,
-    ".sol":   Language.SOL,
-    ".hs":    Language.HASKELL,
-    ".php":   Language.PHP,
-    ".lua":   Language.LUA,
-    ".pl":    Language.PERL,
-    ".cpp":   Language.CPP,
-    ".cc":    Language.CPP,
-    ".cxx":   Language.CPP,
-    ".hpp":   Language.CPP,
-    ".c":     Language.C,
-    ".h":     Language.C,
-    ".cs":    Language.CSHARP,
-    ".ex":    Language.ELIXIR,
-    ".exs":   Language.ELIXIR,
+    ".rb": Language.RUBY,
+    ".md": Language.MARKDOWN,
+    ".mdx": Language.MARKDOWN,
+    ".rst": Language.RST,
+    ".html": Language.HTML,
+    ".htm": Language.HTML,
+    ".sol": Language.SOL,
+    ".hs": Language.HASKELL,
+    ".php": Language.PHP,
+    ".lua": Language.LUA,
+    ".pl": Language.PERL,
+    ".cpp": Language.CPP,
+    ".cc": Language.CPP,
+    ".cxx": Language.CPP,
+    ".hpp": Language.CPP,
+    ".c": Language.C,
+    ".h": Language.C,
+    ".cs": Language.CSHARP,
+    ".ex": Language.ELIXIR,
+    ".exs": Language.ELIXIR,
 }
 
 
@@ -365,6 +474,7 @@ def _get_splitter(extension: str, chunk_size: int, chunk_overlap: int) -> Recurs
 # ---------------------------------------------------------------------------
 # Chunker
 # ---------------------------------------------------------------------------
+
 
 def chunk_documents(
     documents: list[IngestedDocument],

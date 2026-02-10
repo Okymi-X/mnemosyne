@@ -14,7 +14,7 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
 
-from src.cli.theme import console, TABLE_BOX, BRAND, OK, WARN, FAIL
+from src.cli.theme import BRAND, FAIL, OK, TABLE_BOX, WARN, console
 
 # Force UTF-8 output on Windows to avoid CP1252 encoding errors
 if sys.platform == "win32":
@@ -25,9 +25,11 @@ if sys.platform == "win32":
     except Exception:
         pass
 
+
 def _version_callback(value: bool) -> None:
     if value:
         from importlib.metadata import version
+
         try:
             v = version("mnemosyne")
         except Exception:
@@ -47,13 +49,16 @@ app = typer.Typer(
 @app.callback()
 def _main(
     version: bool = typer.Option(
-        False, "--version", "-V",
+        False,
+        "--version",
+        "-V",
         help="Show version and exit.",
         callback=_version_callback,
         is_eager=True,
     ),
 ) -> None:
     """Mnemosyne -- Autonomous agentic coding assistant with infinite context."""
+
 
 # -- Valid providers for CLI help --------------------------------------------
 PROVIDER_HELP = "LLM provider override (google|anthropic|groq|openrouter|openai|ollama)."
@@ -62,6 +67,7 @@ PROVIDER_HELP = "LLM provider override (google|anthropic|groq|openrouter|openai|
 # ---------------------------------------------------------------------------
 # init
 # ---------------------------------------------------------------------------
+
 
 @app.command()
 def init(
@@ -90,8 +96,7 @@ def init(
 
     console.print(
         Panel(
-            f"{OK} {BRAND} initialised at [bold cyan]{root}[/bold cyan]\n"
-            f"   db: [dim]{mnemosyne_dir / 'chroma'}[/dim]",
+            f"{OK} {BRAND} initialised at [bold cyan]{root}[/bold cyan]\n   db: [dim]{mnemosyne_dir / 'chroma'}[/dim]",
             title="[bright_green]init[/bright_green]",
             border_style="bright_green",
             padding=(0, 1),
@@ -102,6 +107,7 @@ def init(
 # ---------------------------------------------------------------------------
 # ingest
 # ---------------------------------------------------------------------------
+
 
 @app.command()
 def ingest(
@@ -117,7 +123,7 @@ def ingest(
     ),
 ) -> None:
     """Scan a directory and ingest code files into the vector store."""
-    from src.core.ingester import scan_directory, chunk_documents
+    from src.core.ingester import chunk_documents, scan_directory
     from src.core.vector_store import add_documents
 
     root = Path(path).resolve()
@@ -131,9 +137,7 @@ def ingest(
         extra = {e if e.startswith(".") else f".{e}" for e in ext}
         console.print(f"{OK} Extra extensions: [cyan]{', '.join(sorted(extra))}[/cyan]")
 
-    console.print(
-        f"\n{OK} Scanning [cyan]{root}[/cyan] for code files ...\n"
-    )
+    console.print(f"\n{OK} Scanning [cyan]{root}[/cyan] for code files ...\n")
 
     with console.status("[bright_green]Scanning files...[/bright_green]"):
         try:
@@ -170,6 +174,7 @@ def ingest(
 # ask
 # ---------------------------------------------------------------------------
 
+
 @app.command()
 def ask(
     question: str = typer.Argument(
@@ -192,9 +197,7 @@ def ask(
     """Ask a question about your ingested codebase."""
     from src.core.brain import ask as brain_ask
 
-    console.print(
-        f"\n{OK} {BRAND} is thinking ...\n"
-    )
+    console.print(f"\n{OK} {BRAND} is thinking ...\n")
 
     with console.status("[bright_green]Retrieving & generating...[/bright_green]"):
         result = brain_ask(
@@ -241,14 +244,13 @@ def ask(
 # forget
 # ---------------------------------------------------------------------------
 
+
 @app.command()
 def forget() -> None:
     """Wipe the entire knowledge base (irreversible)."""
     from src.core.vector_store import reset_collection
 
-    confirm = typer.confirm(
-        "WARNING: This will erase ALL ingested data. Continue?"
-    )
+    confirm = typer.confirm("WARNING: This will erase ALL ingested data. Continue?")
     if not confirm:
         console.print("Aborted.")
         raise typer.Exit(code=0)
@@ -269,11 +271,12 @@ def forget() -> None:
 # Status
 # ---------------------------------------------------------------------------
 
+
 @app.command()
 def status() -> None:
     """Show current Mnemosyne configuration and collection stats."""
     from src.core.config import get_config
-    from src.core.providers import get_provider_display, PROVIDERS
+    from src.core.providers import PROVIDERS, get_provider_display
     from src.core.vector_store import get_or_create_collection
 
     config = get_config()
@@ -306,16 +309,14 @@ def status() -> None:
 
     # -- Available providers list ------------------------------------------
     console.print("\n[dim]Available providers:[/dim]", end=" ")
-    names = [
-        f"[green]{n}[/green]" if n == pinfo["provider"] else f"[dim]{n}[/dim]"
-        for n in sorted(PROVIDERS.keys())
-    ]
+    names = [f"[green]{n}[/green]" if n == pinfo["provider"] else f"[dim]{n}[/dim]" for n in sorted(PROVIDERS.keys())]
     console.print(" | ".join(names))
 
 
 # ---------------------------------------------------------------------------
 # chat  (interactive REPL -- Claude Code-style)
 # ---------------------------------------------------------------------------
+
 
 @app.command()
 def chat(
@@ -346,6 +347,7 @@ def chat(
 # gemini  (Gemini CLI integration)
 # ---------------------------------------------------------------------------
 
+
 @app.command()
 def gemini(
     query: str = typer.Argument(
@@ -373,11 +375,11 @@ def gemini(
 ) -> None:
     """Delegate to Gemini CLI with Mnemosyne's RAG context."""
     from src.core.gemini_cli import (
-        is_gemini_cli_installed,
-        get_install_instructions,
-        query_headless,
-        launch_interactive,
         build_context_prompt,
+        get_install_instructions,
+        is_gemini_cli_installed,
+        launch_interactive,
+        query_headless,
     )
 
     if not is_gemini_cli_installed():
@@ -403,8 +405,8 @@ def gemini(
 
     with console.status("[bright_green]Retrieving context...[/bright_green]"):
         try:
-            from src.core.vector_store import query as vq
             from src.core.brain import load_episodic_memory, rewrite_query
+            from src.core.vector_store import query as vq
 
             search_q = rewrite_query(query)
             results = vq(search_q, n_results=n_results)

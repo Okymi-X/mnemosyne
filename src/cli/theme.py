@@ -9,8 +9,8 @@ import re
 from pathlib import Path
 
 from prompt_toolkit.styles import Style as PTStyle
-from rich.console import Console
 from rich import box
+from rich.console import Console
 
 # ---------------------------------------------------------------------------
 # Console singleton
@@ -31,7 +31,7 @@ W = "[bold white]"
 R = "[/]"
 A = "[bold #e5a00d]"  # Amber -- agent / tool calls
 
-OK   = "[bold green]>[/]"
+OK = "[bold green]>[/]"
 FAIL = "[bold red]x[/]"
 WARN = "[bold yellow]![/]"
 INFO = "[bold cyan]~[/]"
@@ -43,16 +43,18 @@ VERSION = "3.0"
 # prompt-toolkit theme
 # ---------------------------------------------------------------------------
 
-PT_STYLE = PTStyle.from_dict({
-    "prompt":          "#a8e6cf bold",
-    "path":            "#666666",
-    "filter":          "#56c8d8",
-    "readonly":        "#ff6b6b bold",
-    "agent":           "#e5a00d bold",
-    "bottom-toolbar":  "#555555 bg:#111122",
-    "completion-menu": "bg:#1a1a2e #e0e0e0",
-    "completion-menu.completion.current": "bg:#3a3a5e #ffffff bold",
-})
+PT_STYLE = PTStyle.from_dict(
+    {
+        "prompt": "#a8e6cf bold",
+        "path": "#666666",
+        "filter": "#56c8d8",
+        "readonly": "#ff6b6b bold",
+        "agent": "#e5a00d bold",
+        "bottom-toolbar": "#555555 bg:#111122",
+        "completion-menu": "bg:#1a1a2e #e0e0e0",
+        "completion-menu.completion.current": "bg:#3a3a5e #ffffff bold",
+    }
+)
 
 # ---------------------------------------------------------------------------
 # Preferred table style
@@ -64,17 +66,32 @@ TABLE_BOX = box.SIMPLE_HEAD
 # Ignored directories (shared between cli and ingester)
 # ---------------------------------------------------------------------------
 
-IGNORED = frozenset({
-    ".git", "__pycache__", "node_modules", ".venv", "venv",
-    ".mnemosyne", "dist", "build", ".next", ".nuxt", "target",
-    ".tox", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".egg-info",
-})
+IGNORED = frozenset(
+    {
+        ".git",
+        "__pycache__",
+        "node_modules",
+        ".venv",
+        "venv",
+        ".mnemosyne",
+        "dist",
+        "build",
+        ".next",
+        ".nuxt",
+        "target",
+        ".tox",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".egg-info",
+    }
+)
 
 # ---------------------------------------------------------------------------
 # Regex patterns
 # ---------------------------------------------------------------------------
 
-PATH_RE  = re.compile(r"(?:^|\s)((?:[\w.-]+/)+[\w.-]+\.[\w]+)", re.MULTILINE)
+PATH_RE = re.compile(r"(?:^|\s)((?:[\w.-]+/)+[\w.-]+\.[\w]+)", re.MULTILINE)
 BLOCK_RE = re.compile(r"```(\w[\w+#.-]*)?(?::([^\n]+))?\s*\n(.*?)\n```", re.DOTALL)
 
 # ---------------------------------------------------------------------------
@@ -82,11 +99,27 @@ BLOCK_RE = re.compile(r"```(\w[\w+#.-]*)?(?::([^\n]+))?\s*\n(.*?)\n```", re.DOTA
 # ---------------------------------------------------------------------------
 
 EXT_MAP: dict[str, str] = {
-    ".py": "py", ".js": "js", ".ts": "ts", ".jsx": "jsx", ".tsx": "tsx",
-    ".html": "htm", ".css": "css", ".json": "json", ".yaml": "yml",
-    ".yml": "yml", ".toml": "toml", ".md": "md", ".rs": "rs",
-    ".go": "go", ".java": "java", ".c": "c", ".cpp": "cpp",
-    ".sh": "sh", ".sql": "sql", ".vue": "vue", ".svelte": "sv",
+    ".py": "py",
+    ".js": "js",
+    ".ts": "ts",
+    ".jsx": "jsx",
+    ".tsx": "tsx",
+    ".html": "htm",
+    ".css": "css",
+    ".json": "json",
+    ".yaml": "yml",
+    ".yml": "yml",
+    ".toml": "toml",
+    ".md": "md",
+    ".rs": "rs",
+    ".go": "go",
+    ".java": "java",
+    ".c": "c",
+    ".cpp": "cpp",
+    ".sh": "sh",
+    ".sql": "sql",
+    ".vue": "vue",
+    ".svelte": "sv",
 }
 
 # ---------------------------------------------------------------------------
@@ -115,7 +148,6 @@ def tool_icon(name: str) -> str:
         "run_command": "$ ",
     }
     return icons.get(name, "->")
-
 
 
 def ext_tag(name: str) -> str:

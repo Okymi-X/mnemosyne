@@ -11,30 +11,28 @@ from __future__ import annotations
 
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
-from src.core.config import get_config, MnemosyneConfig
+from src.core.brain import (
+    _boost_results,
+    _build_context_block,
+    _estimate_complexity,
+    _load_episodic_memory,
+    _rewrite_query_for_retrieval,
+    summarise_history,
+)
+from src.core.config import MnemosyneConfig, get_config
 from src.core.providers import get_llm
 from src.core.tools import (
     ToolCall,
     ToolResult,
-    parse_tool_calls,
-    execute_tool,
     build_tools_prompt,
-    strip_tool_calls,
-    TOOL_REGISTRY,
-)
-from src.core.brain import (
-    _load_episodic_memory,
-    _rewrite_query_for_retrieval,
-    _boost_results,
-    _build_context_block,
-    _estimate_complexity,
-    summarise_history,
+    execute_tool,
+    parse_tool_calls,
 )
 from src.core.vector_store import query as vector_query
 
@@ -50,9 +48,11 @@ MAX_TOOL_OUTPUT_LEN = 8_000  # Truncate tool output in messages to save context
 # Data types
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class AgentStep:
     """One iteration of the agent loop."""
+
     step_num: int
     reasoning: str = ""
     tool_calls: list[ToolCall] = field(default_factory=list)
@@ -64,6 +64,7 @@ class AgentStep:
 @dataclass
 class AgentResponse:
     """Final result from the agent after all steps."""
+
     answer: str
     steps: list[AgentStep] = field(default_factory=list)
     sources: list[str] = field(default_factory=list)
@@ -144,6 +145,7 @@ def _build_agent_system_prompt(memory: str = "") -> str:
 # Config helper
 # ---------------------------------------------------------------------------
 
+
 def _resolve_config(
     provider_override: str | None = None,
     model_override: str | None = None,
@@ -221,9 +223,7 @@ def run_agent(
     # -- RAG context -------------------------------------------------------
     effective_n = max(n_results, _estimate_complexity(question))
     search_query = _rewrite_query_for_retrieval(question)
-    rag_results = vector_query(
-        search_query, n_results=effective_n, filter_meta=filter_meta
-    )
+    rag_results = vector_query(search_query, n_results=effective_n, filter_meta=filter_meta)
     rag_results = _boost_results(rag_results, question)
     ctx = _build_context_block(rag_results)
     mem = _load_episodic_memory()
@@ -343,15 +343,11 @@ def run_agent(
                 output = output[:MAX_TOOL_OUTPUT_LEN] + "\n... (truncated)"
 
             status = "SUCCESS" if result.success else "FAILED"
-            tool_output_parts.append(
-                f"[Tool: {tc.name}] [{status}]\n{output}"
-            )
+            tool_output_parts.append(f"[Tool: {tc.name}] [{status}]\n{output}")
 
         # Inject tool results as a user message
         tool_results_text = "\n\n---\n\n".join(tool_output_parts)
-        msgs.append(HumanMessage(
-            content=f"[Tool Results — step {step_num}]\n\n{tool_results_text}"
-        ))
+        msgs.append(HumanMessage(content=f"[Tool Results — step {step_num}]\n\n{tool_results_text}"))
 
         steps.append(step)
         emit("step_done", {"step": step})

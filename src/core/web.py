@@ -6,10 +6,11 @@ DuckDuckGo web + news search with ranked results.
 from __future__ import annotations
 
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 try:
     from duckduckgo_search import DDGS
+
     HAS_DDG = True
 except ImportError:
     HAS_DDG = False
@@ -18,6 +19,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Generic helper -- DRY for web & news
 # ---------------------------------------------------------------------------
+
 
 def _search(
     query: str,
@@ -47,6 +49,7 @@ def _search(
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def _fmt_web(i: int, r: dict) -> str:
     title = r.get("title", "No Title")

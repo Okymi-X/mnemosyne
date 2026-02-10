@@ -57,8 +57,16 @@ select = [
 ]
 ignore = [
     "E501",   # line length (handled by formatter)
+    "E741",   # ambiguous variable name (single-letter vars in comprehensions)
     "B008",   # function call in default argument (Typer/FastAPI pattern)
+    "B904",   # raise from in except (typer.Exit pattern)
+    "B905",   # zip strict (not always needed)
+    "B007",   # unused loop variable
+    "N817",   # CamelCase imported as acronym (local aliases)
     "UP007",  # use X | Y for union (readability preference)
+    "UP028",  # yield from (readability preference)
+    "TCH",    # type-checking imports (can break runtime)
+    "RUF005", # iterable unpacking vs concatenation (style preference)
 ]
 
 [tool.ruff.lint.isort]

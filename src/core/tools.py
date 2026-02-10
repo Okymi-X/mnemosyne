@@ -11,29 +11,32 @@ import json
 import re
 import subprocess
 import time
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from src.cli.theme import IGNORED
-
 
 # ---------------------------------------------------------------------------
 # Data types
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Tool:
     """A tool available to the agent."""
+
     name: str
     description: str
-    parameters: dict[str, str]   # param_name -> description
+    parameters: dict[str, str]  # param_name -> description
     handler: Callable[..., str]
 
 
 @dataclass
 class ToolCall:
     """A parsed tool invocation from LLM output."""
+
     name: str
     params: dict[str, Any]
 
@@ -41,6 +44,7 @@ class ToolCall:
 @dataclass
 class ToolResult:
     """Result of executing a tool."""
+
     name: str
     output: str
     success: bool
@@ -66,10 +70,12 @@ def parse_tool_calls(text: str) -> tuple[str, list[ToolCall]]:
     for m in TOOL_CALL_RE.finditer(text):
         try:
             data = json.loads(m.group(1))
-            calls.append(ToolCall(
-                name=data.get("name", "unknown"),
-                params=data.get("params", {}),
-            ))
+            calls.append(
+                ToolCall(
+                    name=data.get("name", "unknown"),
+                    params=data.get("params", {}),
+                )
+            )
         except json.JSONDecodeError:
             continue
     reasoning = TOOL_CALL_RE.sub("", text).strip()
@@ -84,6 +90,7 @@ def strip_tool_calls(text: str) -> str:
 # ---------------------------------------------------------------------------
 # Tool implementations
 # ---------------------------------------------------------------------------
+
 
 def _read_file(path: str = ".", **_: Any) -> str:
     """Read the full contents of a file."""
@@ -158,7 +165,10 @@ def _grep_search(pattern: str = "", **_: Any) -> str:
     try:
         r = subprocess.run(
             ["git", "grep", "-n", "--color=never", "-I", pattern],
-            capture_output=True, text=True, timeout=10, cwd=Path.cwd(),
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=Path.cwd(),
         )
         if r.stdout:
             lines = r.stdout.strip().split("\n")
@@ -177,9 +187,7 @@ def _grep_search(pattern: str = "", **_: Any) -> str:
         if set(str(p.relative_to(cwd)).replace("\\", "/").split("/")) & IGNORED:
             continue
         try:
-            for i, ln in enumerate(
-                p.read_text("utf-8", errors="ignore").split("\n"), 1
-            ):
+            for i, ln in enumerate(p.read_text("utf-8", errors="ignore").split("\n"), 1):
                 if pattern.lower() in ln.lower():
                     hits.append(f"{p.relative_to(cwd)}:{i}: {ln.strip()}")
                     if len(hits) >= 35:
@@ -196,8 +204,8 @@ def _search_codebase(query: str = "", n_results: int = 10, **_: Any) -> str:
     if not query:
         return "Error: query required"
     try:
+        from src.core.brain import _boost_results, _rewrite_query_for_retrieval
         from src.core.vector_store import query as vq
-        from src.core.brain import _rewrite_query_for_retrieval, _boost_results
 
         search_q = _rewrite_query_for_retrieval(query)
         results = vq(search_q, n_results=n_results)
@@ -208,9 +216,7 @@ def _search_codebase(query: str = "", n_results: int = 10, **_: Any) -> str:
 
         parts: list[str] = []
         for r in results:
-            parts.append(
-                f"### {r.source} ({r.score:.0%})\n```\n{r.content}\n```"
-            )
+            parts.append(f"### {r.source} ({r.score:.0%})\n```\n{r.content}\n```")
         return "\n\n".join(parts)
     except Exception as e:
         return f"Search failed: {e}"
@@ -222,6 +228,7 @@ def _search_web(query: str = "", **_: Any) -> str:
         return "Error: query required"
     try:
         from src.core.web import search_web
+
         return search_web(query, max_results=6)
     except Exception as e:
         return f"Web search failed: {e}"
@@ -233,16 +240,25 @@ def _run_command(command: str = "", **_: Any) -> str:
         return "Error: command required"
     # Block dangerous commands
     dangerous = [
-        "rm -rf /", "rm -rf ~", "format c:", "del /f /s /q c:",
-        "mkfs", ":(){:|:&};:", "dd if=/dev/zero",
+        "rm -rf /",
+        "rm -rf ~",
+        "format c:",
+        "del /f /s /q c:",
+        "mkfs",
+        ":(){:|:&};:",
+        "dd if=/dev/zero",
     ]
     cmd_lower = command.lower().strip()
     if any(d in cmd_lower for d in dangerous):
         return "Error: blocked potentially destructive command."
     try:
         r = subprocess.run(
-            command, shell=True, capture_output=True, text=True,
-            timeout=45, cwd=Path.cwd(),
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=45,
+            cwd=Path.cwd(),
         )
         output = ""
         if r.stdout:
@@ -317,6 +333,7 @@ TOOL_REGISTRY: dict[str, Tool] = {
 # Execution
 # ---------------------------------------------------------------------------
 
+
 def execute_tool(call: ToolCall) -> ToolResult:
     """Execute a single tool call and return the result."""
     tool = TOOL_REGISTRY.get(call.name)
@@ -342,6 +359,7 @@ def execute_tool(call: ToolCall) -> ToolResult:
 # ---------------------------------------------------------------------------
 # Prompt builder -- generates tool docs for the system prompt
 # ---------------------------------------------------------------------------
+
 
 def build_tools_prompt() -> str:
     """Build the tools documentation section for the agent system prompt."""

@@ -7,16 +7,18 @@ smart summarisation, and priority-based retrieval.
 from __future__ import annotations
 
 import re
+from collections.abc import Generator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Generator, Any
+from typing import Any
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from rich.console import Console
 
-from src.core.config import get_config, MnemosyneConfig
+from src.core.config import MnemosyneConfig, get_config
 from src.core.providers import get_llm
-from src.core.vector_store import query as vector_query, QueryResult
+from src.core.vector_store import QueryResult
+from src.core.vector_store import query as vector_query
 
 console = Console(highlight=False)
 
@@ -59,15 +61,15 @@ def _rewrite_query_for_retrieval(query: str) -> str:
     expansions: list[str] = [query]
 
     keyword_map: dict[str, list[str]] = {
-        "auth":   ["authentication", "login", "jwt", "token", "session"],
-        "db":     ["database", "query", "model", "migration", "schema"],
-        "api":    ["endpoint", "route", "handler", "controller", "request"],
-        "test":   ["unittest", "pytest", "spec", "mock", "fixture"],
+        "auth": ["authentication", "login", "jwt", "token", "session"],
+        "db": ["database", "query", "model", "migration", "schema"],
+        "api": ["endpoint", "route", "handler", "controller", "request"],
+        "test": ["unittest", "pytest", "spec", "mock", "fixture"],
         "deploy": ["dockerfile", "ci", "pipeline", "build", "release"],
-        "style":  ["css", "tailwind", "theme", "component", "layout"],
-        "error":  ["exception", "handle", "catch", "raise", "try"],
+        "style": ["css", "tailwind", "theme", "component", "layout"],
+        "error": ["exception", "handle", "catch", "raise", "try"],
         "config": ["settings", "env", "environment", "dotenv", "toml"],
-        "perf":   ["performance", "cache", "optimise", "benchmark", "profil"],
+        "perf": ["performance", "cache", "optimise", "benchmark", "profil"],
     }
     q_lower = query.lower()
     for trigger, extras in keyword_map.items():
@@ -88,12 +90,14 @@ def _boost_results(results: list[QueryResult], query: str) -> list[QueryResult]:
             bonus = 0.15
         if "memory" in src:
             bonus = max(bonus, 0.10)
-        boosted.append(QueryResult(
-            content=r.content,
-            source=r.source,
-            score=min(r.score + bonus, 1.0),
-            metadata=r.metadata,
-        ))
+        boosted.append(
+            QueryResult(
+                content=r.content,
+                source=r.source,
+                score=min(r.score + bonus, 1.0),
+                metadata=r.metadata,
+            )
+        )
     boosted.sort(key=lambda r: r.score, reverse=True)
     return boosted
 
@@ -136,6 +140,7 @@ def summarise_history(history: list[BaseMessage], keep_last: int = 4) -> list[Ba
 
     summary_msg = HumanMessage(content="\n".join(pieces))
     return [summary_msg] + recent
+
 
 SYSTEM_PROMPT = """\
 You are **Mnemosyne v3.0**, an autonomous agentic coding assistant living in the \
@@ -219,9 +224,7 @@ def _build_context_block(results: list[QueryResult]) -> str:
             relevance = "[mid]"
         else:
             relevance = "[low]"
-        parts.append(
-            f"### {relevance} `{r.source}` (relevance: {r.score:.0%})\n```\n{r.content}\n```"
-        )
+        parts.append(f"### {relevance} `{r.source}` (relevance: {r.score:.0%})\n```\n{r.content}\n```")
     return "\n\n".join(parts)
 
 
@@ -236,7 +239,10 @@ def _build_messages(q: str, ctx: str, mem: str) -> list[BaseMessage]:
 
 
 def _build_chat_messages(
-    q: str, ctx: str, mem: str, history: list[BaseMessage],
+    q: str,
+    ctx: str,
+    mem: str,
+    history: list[BaseMessage],
 ) -> list[BaseMessage]:
     sys = SYSTEM_PROMPT
     if mem:
@@ -280,9 +286,13 @@ def _resolve_config(
 
 # -- Single-shot -------------------------------------------------------------
 
+
 def ask(
-    question: str, *, n_results: int = 8,
-    project_root: Path | None = None, provider_override: str | None = None,
+    question: str,
+    *,
+    n_results: int = 8,
+    project_root: Path | None = None,
+    provider_override: str | None = None,
     filter_meta: dict[str, Any] | None = None,
 ) -> BrainResponse:
     cfg = _resolve_config(provider_override)
@@ -301,9 +311,13 @@ def ask(
 
 # -- Streaming ---------------------------------------------------------------
 
+
 def ask_streaming(
-    question: str, *, history: list[BaseMessage] | None = None,
-    n_results: int = 8, project_root: Path | None = None,
+    question: str,
+    *,
+    history: list[BaseMessage] | None = None,
+    n_results: int = 8,
+    project_root: Path | None = None,
     provider_override: str | None = None,
     model_override: str | None = None,
     filter_meta: dict[str, Any] | None = None,

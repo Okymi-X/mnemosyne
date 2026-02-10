@@ -12,18 +12,21 @@ from pathlib import Path
 
 from rich.panel import Panel
 
-from src.cli.theme import console, C, D, G, R, M, OK, FAIL, WARN
-
+from src.cli.theme import FAIL, OK, WARN, C, D, G, M, R, console
 
 # ---------------------------------------------------------------------------
 # /run  (with smart error hints)
 # ---------------------------------------------------------------------------
 
 _CMD_HINTS: dict[str, str] = {
-    "python3": "try: python", "py": "try: python",
-    "pip3": "try: pip", "node": "install Node.js",
-    "npm": "install Node.js", "cargo": "install Rust",
-    "go": "install Go", "docker": "install Docker",
+    "python3": "try: python",
+    "py": "try: python",
+    "pip3": "try: pip",
+    "node": "install Node.js",
+    "npm": "install Node.js",
+    "cargo": "install Rust",
+    "go": "install Go",
+    "docker": "install Docker",
 }
 
 
@@ -36,8 +39,12 @@ def cmd_run(cmd: str) -> None:
     console.print(f"\n  {D}${R} {C}{cmd}{R}\n")
     try:
         r = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True,
-            timeout=60, cwd=Path.cwd(),
+            cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=Path.cwd(),
         )
         if r.stdout:
             console.print(r.stdout.rstrip())
@@ -78,8 +85,8 @@ def _suggest_fix(err: str, cmd: str) -> None:
 # /git  (with smart commit messages)
 # ---------------------------------------------------------------------------
 
-def cmd_git(args: str, provider_override: str | None = None,
-            model_override: str | None = None) -> None:
+
+def cmd_git(args: str, provider_override: str | None = None, model_override: str | None = None) -> None:
     """Git wrapper with LLM-powered commit message generation."""
     if not args:
         console.print(f"  {WARN} usage: /git <args>\n")
@@ -94,7 +101,10 @@ def cmd_git(args: str, provider_override: str | None = None,
     console.print(f"\n  {D}${R} {C}git {args}{R}\n")
     try:
         r = subprocess.run(
-            f"git {args}", shell=True, capture_output=True, text=True,
+            f"git {args}",
+            shell=True,
+            capture_output=True,
+            text=True,
             cwd=Path.cwd(),
         )
         if r.stdout:
@@ -109,44 +119,51 @@ def cmd_git(args: str, provider_override: str | None = None,
         console.print(f"  {FAIL} {exc}\n")
 
 
-def _smart_commit(args: str, provider_override: str | None,
-                  model_override: str | None) -> str | None:
+def _smart_commit(args: str, provider_override: str | None, model_override: str | None) -> str | None:
     """Generate a commit message via LLM. Returns updated args or None."""
     console.print(f"  {M}generating commit message...{R}")
     try:
         diff_stat = subprocess.check_output(
-            ["git", "diff", "--cached", "--stat"], text=True, cwd=Path.cwd(),
+            ["git", "diff", "--cached", "--stat"],
+            text=True,
+            cwd=Path.cwd(),
         ).strip()
         if not diff_stat:
             console.print(f"  {WARN} no staged changes. Stage with: git add <files>\n")
             return None
 
         full_diff = subprocess.check_output(
-            ["git", "diff", "--cached"], text=True, cwd=Path.cwd(),
+            ["git", "diff", "--cached"],
+            text=True,
+            cwd=Path.cwd(),
         ).strip()
+
+        from langchain_core.messages import HumanMessage as HM
+        from langchain_core.messages import SystemMessage as SM
 
         from src.core.brain import _resolve_config
         from src.core.providers import get_llm
-        from langchain_core.messages import SystemMessage as SM, HumanMessage as HM
 
         cfg = _resolve_config(provider_override, model_override)
         llm = get_llm(cfg)
 
         msgs = [
-            SM(content=(
-                "You are a git commit message generator. "
-                "Write a single conventional commit message for the given diff. "
-                "Format: type(scope): description\n"
-                "Types: feat, fix, refactor, docs, style, test, chore, perf\n"
-                "Keep it under 72 chars. No quotes. Just the message. Nothing else."
-            )),
+            SM(
+                content=(
+                    "You are a git commit message generator. "
+                    "Write a single conventional commit message for the given diff. "
+                    "Format: type(scope): description\n"
+                    "Types: feat, fix, refactor, docs, style, test, chore, perf\n"
+                    "Keep it under 72 chars. No quotes. Just the message. Nothing else."
+                )
+            ),
             HM(content=f"Files changed:\n{diff_stat}\n\nDiff:\n{full_diff[:3000]}"),
         ]
-        msg = llm.invoke(msgs).content.strip().strip('"\'')  # type: ignore
+        msg = llm.invoke(msgs).content.strip().strip("\"'")  # type: ignore
         console.print(f"\n  {G}suggested:{R} {C}{msg}{R}")
 
         try:
-            ans = input(f"\n  use this message? [Y/n/edit] ").strip().lower()
+            ans = input("\n  use this message? [Y/n/edit] ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             console.print(f"  {D}aborted{R}\n")
             return None
@@ -155,7 +172,7 @@ def _smart_commit(args: str, provider_override: str | None,
             return f'commit -m "{msg}"'
         elif ans in ("e", "edit"):
             try:
-                custom = input(f"  message: ").strip()
+                custom = input("  message: ").strip()
             except (EOFError, KeyboardInterrupt):
                 console.print(f"  {D}aborted{R}\n")
                 return None
@@ -174,6 +191,7 @@ def _smart_commit(args: str, provider_override: str | None,
 # ---------------------------------------------------------------------------
 # /lint
 # ---------------------------------------------------------------------------
+
 
 def cmd_lint(path: str) -> None:
     """Run available linters on the given path."""
@@ -197,10 +215,14 @@ def cmd_lint(path: str) -> None:
                 console.print(f"    {FAIL} {base} found issues")
                 output = (r.stdout + r.stderr).strip()
                 if output:
-                    console.print(Panel(
-                        output, title=f"[dim]{base}[/dim]",
-                        border_style="red", padding=(0, 1),
-                    ))
+                    console.print(
+                        Panel(
+                            output,
+                            title=f"[dim]{base}[/dim]",
+                            border_style="red",
+                            padding=(0, 1),
+                        )
+                    )
         except Exception:
             pass
 
@@ -212,6 +234,7 @@ def cmd_lint(path: str) -> None:
 # ---------------------------------------------------------------------------
 # /cd
 # ---------------------------------------------------------------------------
+
 
 def cmd_cd(path: str, check_index_fn=None) -> None:
     """Change working directory."""
@@ -232,6 +255,7 @@ def cmd_cd(path: str, check_index_fn=None) -> None:
 # /ingest
 # ---------------------------------------------------------------------------
 
+
 def cmd_ingest(path: str) -> None:
     """Re-index codebase into vector store."""
     target = Path(path).resolve() if path else Path.cwd()
@@ -240,8 +264,9 @@ def cmd_ingest(path: str) -> None:
         return
     console.print(f"  {D}indexing {target}...{R}")
     try:
-        from src.core.ingester import scan_directory, chunk_documents
+        from src.core.ingester import chunk_documents, scan_directory
         from src.core.vector_store import add_documents
+
         docs = list(scan_directory(target))
         chunks = chunk_documents(docs)
         written = add_documents(chunks)

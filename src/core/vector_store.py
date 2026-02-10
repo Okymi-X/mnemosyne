@@ -21,6 +21,7 @@ console = Console()
 @dataclass
 class QueryResult:
     """A single result returned from a similarity search."""
+
     content: str
     source: str
     score: float
@@ -91,6 +92,7 @@ def add_documents(chunks: list[DocumentChunk]) -> int:
 # Read
 # ─────────────────────────────────────────────────────────────────────────
 
+
 def query(
     text: str,
     n_results: int = 8,
@@ -105,8 +107,7 @@ def query(
 
     if collection.count() == 0:
         console.print(
-            "[yellow][!][/yellow] The knowledge base is empty. "
-            "Run [green]mnemosyne ingest <path>[/green] first."
+            "[yellow][!][/yellow] The knowledge base is empty. Run [green]mnemosyne ingest <path>[/green] first."
         )
         return []
 
@@ -130,7 +131,7 @@ def query(
             QueryResult(
                 content=doc,
                 source=meta.get("source", "unknown"),
-                score=round(1 - dist, 4),     # cosine -> similarity
+                score=round(1 - dist, 4),  # cosine -> similarity
                 metadata=meta,
             )
         )
@@ -141,6 +142,7 @@ def query(
 # ─────────────────────────────────────────────────────────────────────────
 # Reset
 # ─────────────────────────────────────────────────────────────────────────
+
 
 def reset_collection() -> None:
     """Delete and recreate the collection (the 'forget' operation)."""
