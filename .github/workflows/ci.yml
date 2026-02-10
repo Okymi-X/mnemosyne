@@ -36,6 +36,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
+      - name: Install ruff
+        run: uv pip install ruff
+
       - name: Ruff format check
         run: uv run ruff format --check src/
 
@@ -64,7 +67,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
-      - name: Install mypy
+      - name: Install mypy & type stubs
         run: uv pip install mypy
 
       - name: Run mypy
