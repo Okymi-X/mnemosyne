@@ -6,6 +6,7 @@ Supports headless queries, interactive delegation, streaming, and context piping
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shutil
 import subprocess
@@ -130,7 +131,7 @@ _CMD_LINE_LIMIT = 7_500
 
 def _prompt_args_and_stdin(
     prompt: str,
-) -> tuple[list[str], str | None, "_PromptTempFile | None"]:
+) -> tuple[list[str], str | None, _PromptTempFile | None]:
     """
     Decide how to pass *prompt* to Gemini CLI.
 
@@ -149,17 +150,11 @@ def _prompt_args_and_stdin(
         return (["-p", prompt], None, None)
 
     # Write to a temp file so the command line stays short
-    tmp = tempfile.NamedTemporaryFile(
-        mode="w",
-        suffix=".md",
-        prefix="mnemosyne_gemini_",
-        delete=False,
-        encoding="utf-8",
-    )
-    tmp.write(prompt)
-    tmp.flush()
-    tmp.close()  # close so Gemini can read it on Windows
-    return (["-p", f"@{tmp.name}"], None, tmp)
+    tmp = tempfile.mkstemp(suffix=".md", prefix="mnemosyne_gemini_")
+    fd, tmp_path = tmp
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(prompt)
+    return (["-p", f"@{tmp_path}"], None, _PromptTempFile(tmp_path))
 
 
 class _PromptTempFile:
@@ -169,10 +164,8 @@ class _PromptTempFile:
         self.path = path
 
     def cleanup(self) -> None:
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(self.path)
-        except OSError:
-            pass
 
 
 def query_headless(
@@ -239,10 +232,8 @@ def query_headless(
         )
     finally:
         if tmp:
-            try:
+            with contextlib.suppress(OSError):
                 os.unlink(tmp.name)
-            except OSError:
-                pass
 
 
 def query_streaming(
@@ -307,10 +298,8 @@ def query_streaming(
         return -3
     finally:
         if tmp:
-            try:
+            with contextlib.suppress(OSError):
                 os.unlink(tmp.name)
-            except OSError:
-                pass
 
 
 def launch_interactive(
