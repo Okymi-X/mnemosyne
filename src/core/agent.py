@@ -237,29 +237,17 @@ def _translate_native_tool_call(failed_gen: str) -> str:
         for nk, nv in native_args.items():
             mk = param_map.get(nk, nk)
             mn_params[mk] = nv
-        return (
-            f'<tool_call>\n'
-            f'{_json.dumps({"name": mn_name, "params": mn_params})}\n'
-            f'</tool_call>'
-        )
+        return f"<tool_call>\n{_json.dumps({'name': mn_name, 'params': mn_params})}\n</tool_call>"
 
     # Fuzzy fallback: match keywords in the native tool name
     name_lower = native_name.lower()
     for keyword, mn_tool in _TOOL_KEYWORD_FALLBACK.items():
         if keyword in name_lower:
-            return (
-                f'<tool_call>\n'
-                f'{_json.dumps({"name": mn_tool, "params": native_args})}\n'
-                f'</tool_call>'
-            )
+            return f"<tool_call>\n{_json.dumps({'name': mn_tool, 'params': native_args})}\n</tool_call>"
 
     # Unknown tool -- direct pass-through
     # (execute_tool will return an "unknown tool" error, which is fine)
-    return (
-        f'<tool_call>\n'
-        f'{_json.dumps({"name": native_name, "params": native_args})}\n'
-        f'</tool_call>'
-    )
+    return f"<tool_call>\n{_json.dumps({'name': native_name, 'params': native_args})}\n</tool_call>"
 
 
 # ---------------------------------------------------------------------------
@@ -413,11 +401,13 @@ def run_agent(
                     except _json.JSONDecodeError:
                         # Fallback: convert Python repr (single quotes) to JSON
                         import ast as _ast
+
                         payload = _ast.literal_eval(raw_payload)
                     failed_gen = payload.get("error", {}).get("failed_generation", "")
                 except Exception:
                     # Last resort: regex extract from the raw error string
                     import re as _re
+
                     m = _re.search(r"'failed_generation':\s*'(.*?)'(?:}|,)", err_str)
                     if not m:
                         m = _re.search(r'"failed_generation":\s*"(.*?)"(?:}|,)', err_str)
@@ -437,7 +427,12 @@ def run_agent(
                         provider=cfg.llm_provider,
                     )
             # Handle context/token limit errors (413, rate_limit_exceeded)
-            elif "rate_limit" in err_str or "413" in err_str or "too large" in err_str.lower() or "Request too large" in err_str:
+            elif (
+                "rate_limit" in err_str
+                or "413" in err_str
+                or "too large" in err_str.lower()
+                or "Request too large" in err_str
+            ):
                 emit("error", {"error": "Context limit reached — summarising collected information."})
                 # Try to salvage: gather reasoning from previous steps
                 gathered: list[str] = []
@@ -449,9 +444,13 @@ def run_agent(
                             # Include just the first 200 chars of each tool result
                             gathered.append(f"[{tr.name}]: {tr.output[:200]}")
                 fallback_answer = (
-                    "I gathered some information but hit the model's token limit before I could synthesise a full answer.\n\n"
-                    + "\n".join(gathered[:10])
-                ) if gathered else f"Error: token limit exceeded at step {step_num}. Try a simpler question or a model with a larger context window."
+                    (
+                        "I gathered some information but hit the model's token limit before I could synthesise a full answer.\n\n"
+                        + "\n".join(gathered[:10])
+                    )
+                    if gathered
+                    else f"Error: token limit exceeded at step {step_num}. Try a simpler question or a model with a larger context window."
+                )
                 return AgentResponse(
                     answer=fallback_answer,
                     steps=steps,
@@ -548,9 +547,7 @@ def run_agent(
             # Check if adding this would exceed the per-step budget
             entry = f"[Tool: {tc.name}] [{'SUCCESS' if result.success else 'FAILED'}]\n{output}"
             if total_step_output + len(entry) > MAX_STEP_OUTPUT_LEN and tool_output_parts:
-                tool_output_parts.append(
-                    f"[Tool: {tc.name}] [SKIPPED] (output omitted to stay within context budget)"
-                )
+                tool_output_parts.append(f"[Tool: {tc.name}] [SKIPPED] (output omitted to stay within context budget)")
                 total_step_output += 80
                 continue
 

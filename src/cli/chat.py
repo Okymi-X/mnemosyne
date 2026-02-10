@@ -907,7 +907,7 @@ class ChatSession:
             # Smart shell detection
             first = raw.split()[0].lower()
             if first in ("ls", "dir", "cd", "pwd", "cls", "clear"):
-                rest_arg = raw[len(first):].strip()
+                rest_arg = raw[len(first) :].strip()
                 if first == "cd":
                     cmd_cd(rest_arg, self._check_index)
                 elif first in ("ls", "dir"):
